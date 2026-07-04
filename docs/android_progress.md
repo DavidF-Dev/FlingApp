@@ -4,7 +4,7 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 **Target AVD:** Pixel_8, API 36
 
-**Test framework:** JUnit 5 + kotlinx-coroutines-test. Ktor routes tested via Ktor's `testApplication` (in-process, no real server). Android-specific code (notifications, clipboard) tested manually on the AVD.
+**Test framework:** JUnit 4 + kotlinx-coroutines-test. Ktor routes tested via Ktor's `testApplication` (in-process, no real server). Android-specific code (notifications, clipboard) tested manually on the AVD.
 
 ---
 
@@ -14,8 +14,9 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ### Tasks
 
-- [ ] Create a new Android project (package: `dev.davidfdev.fling`, min SDK 26, target SDK 36).
-- [ ] Add Gradle dependencies: Jetpack Compose (BOM), Material 3, Ktor (server-netty, content-negotiation, kotlinx-serialization), DataStore Preferences, Accompanist (permissions if needed).
+- [x] Create a new Android project (package: `dev.davidfdev.fling`, min SDK 26, target SDK 36).
+- [x] Add Gradle dependencies: Jetpack Compose (BOM), Material 3, Ktor (server-netty, content-negotiation, kotlinx-serialization), DataStore Preferences. Note: `kotlin-android` plugin is not needed under AGP 9 (bundled via `kotlin-compose`). Accompanist not needed (Compose BOM handles permissions).
+- [x] Set up the test infrastructure: JUnit 4, kotlinx-coroutines-test, Ktor test dependencies in `build.gradle.kts`.
 - [ ] Create `FlingService` — a foreground service that:
   - Creates a notification channel (`fling_service`) on start.
   - Posts a persistent notification: "Fling is listening on port 7291".
@@ -23,7 +24,6 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 - [ ] Create a minimal Compose `MainActivity` with a single button: Start / Stop service.
 - [ ] Add `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`, and `POST_NOTIFICATIONS` permissions to the manifest.
 - [ ] Handle the POST_NOTIFICATIONS runtime permission request on API 33+.
-- [ ] Set up the test infrastructure: JUnit 5, kotlinx-coroutines-test, Ktor test dependencies in `build.gradle.kts`.
 
 ### Verification
 
