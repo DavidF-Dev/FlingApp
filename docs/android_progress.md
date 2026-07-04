@@ -67,20 +67,29 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 3: DataStore & Pairing (`/pair`)
+## Phase 3: Pairing (`/pair`)
 
-**Goal:** The phone can accept pairing requests from PCs. Paired device keys are persisted in DataStore.
+**Goal:** The phone can accept pairing requests from PCs. Paired device keys are persisted in a local JSON file.
+
+> **Decisions:**
+>
+> - **Storage:** Paired devices are stored in a plain JSON file (`paired_devices.json` in app internal storage) managed via kotlinx-serialization. Not DataStore Preferences — a structured list doesn't belong in scalar key-value storage.
+> - **Phone name:** Uses `Build.MODEL` for now (same as `/ping`). Later (Phase 9) this becomes a persistent random name (e.g., "Handsome Orange") to avoid user-editable names causing desync between PC and phone.
+> - **PC name:** The `"name"` field in the pair request body is what the PC declares itself as. The phone stores it in `PairedDevice` and displays it in the "Paired devices" list. This name is exchanged only at pair-time.
+> - **Name freshness (future):** `/ping` already returns the phone's current name; the CLI can compare and update its stored copy passively. PC→phone staleness is accepted until a future sync mechanism.
+> - **Concurrent pairing:** Only one pending request at a time. A second request arriving while one is pending is auto-rejected.
 
 ### Tasks
 
 - [ ] Define a `PairedDevice` data class: `name: String`, `apiKey: String`, `pairedAt: Long`.
-- [ ] Create `DeviceRepository` — wraps DataStore to store/retrieve/delete paired devices. Serialize as JSON in a DataStore Preferences string entry.
+- [ ] Create `DeviceRepository` — reads/writes `paired_devices.json` in app internal storage via kotlinx-serialization. Exposes suspend functions for store/retrieve/delete. Reads and writes on `Dispatchers.IO`.
 - [ ] Implement `POST /pair`:
   - Parse request body: `{ "name": "My PC", "key": "<api-key>" }`.
   - If the key is already paired, respond `{"status":"accepted","name":"<phone_name>"}` immediately (idempotent re-pair).
   - Otherwise, suspend the request and prompt the user for approval.
-  - On accept: store the device in DataStore, respond `{"status":"accepted","name":"<phone_name>"}`.
+  - On accept: store the device, respond `{"status":"accepted","name":"<phone_name>"}`.
   - On reject: respond `{"status":"rejected"}`.
+  - If another pairing request is already pending, respond `{"status":"rejected"}` immediately.
 - [ ] Implement the pairing approval mechanism behind a `PairingApprover` interface (`suspend fun requestApproval(deviceName: String): Boolean`):
   - MVP implementation: show an Android notification with Accept/Reject action buttons (PendingIntent → BroadcastReceiver). The Ktor request suspends on a `CompletableDeferred<Boolean>` and resumes when the user taps an action.
   - The route handler calls only the `PairingApprover` interface — it does not know whether approval happens via notification, dialog, or anything else. This makes upgrading the UX later (e.g., full-screen dialog) a single-class swap.
@@ -88,22 +97,23 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ### Unit Tests
 
-- [ ] `POST /pair` with valid body returns 200 and correct JSON shape — via `testApplication` (auto-accept in tests by providing a fake approval mechanism).
+- [ ] `POST /pair` with valid body returns 200 and correct JSON shape — via `testApplication` (auto-accept in tests by providing a fake `PairingApprover`).
 - [ ] `POST /pair` with missing `name` or `key` returns 400.
 - [ ] `POST /pair` with malformed JSON returns 400.
-- [ ] `DeviceRepository` round-trip: store a device, retrieve it, assert fields match (use a test DataStore instance).
+- [ ] `DeviceRepository` round-trip: store a device, retrieve it, assert fields match (use a temp file).
 - [ ] `DeviceRepository` delete: store, delete, confirm absent.
 - [ ] Idempotent re-pair: pair with same key twice, confirm only one device entry stored.
+- [ ] Concurrent pairing: second request while one is pending returns rejected immediately.
 
 ### Verification
 
 1. Start the service.
-2. From the PC: `curl -X POST http://<ip>:7291/pair -H "Content-Type: application/json" -d '{"name":"Test PC","key":"abc123"}'`
-3. Confirm a notification/dialog appears on the phone asking to approve.
+2. From the PC: `curl -X POST http://localhost:7291/pair -H "Content-Type: application/json" -d '{"name":"Test PC","key":"abc123"}'`
+3. Confirm a notification appears on the phone asking to approve.
 4. Tap Accept — confirm the response is `{"status":"accepted",...}`.
 5. Repeat the same curl — confirm idempotent re-pair (accepted immediately, no prompt).
 6. Send a new key: `curl ... -d '{"name":"Other PC","key":"xyz789"}'` — tap Reject — confirm `{"status":"rejected"}`.
-7. Kill and restart the app — confirm previously paired device key is still in DataStore (re-pair with `abc123` should be idempotent).
+7. Kill and restart the app — confirm previously paired device key is still persisted (re-pair with `abc123` should be idempotent).
 
 ---
 
@@ -277,8 +287,8 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ### Tasks
 
-- [ ] Create a `Settings` data class with defaults: `port: Int = 7291`, `maxSizeMb: Int = 10`, `rateLimitPerMinute: Int = 10`, `notificationTimeoutMinutes: Int = 5`, `bufferSize: Int = 10`, `serviceEnabled: Boolean = true`, `deviceName: String = Build.MODEL`.
-- [ ] **User-configurable device name:** The `/ping` response `name` field uses `Build.MODEL` by default (set in Phase 2). Allow the user to override it in Settings.
+- [ ] Create a `Settings` data class with defaults: `port: Int = 7291`, `maxSizeMb: Int = 10`, `rateLimitPerMinute: Int = 10`, `notificationTimeoutMinutes: Int = 5`, `bufferSize: Int = 10`, `serviceEnabled: Boolean = true`.
+- [ ] **Persistent device name:** Generate a random two-word name on first launch (e.g., "Handsome Orange", similar to LocalSend). Store in Settings. Used as the phone's identity in `/ping` and `/pair` responses. The user may override it in Settings, understanding this can cause desync with the PC's stored copy (the CLI can refresh its copy from `/ping` passively).
 - [ ] Store settings in DataStore.
 - [ ] Add a Settings screen (Compose) accessible from the main screen.
 - [ ] Changing the port requires a service restart — prompt the user.
