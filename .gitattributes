@@ -1,0 +1,28 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# C#
+*.cs text diff=csharp
+*.csproj text
+*.sln text eol=crlf
+
+# Kotlin / Android
+*.kt text
+*.kts text
+*.xml text
+*.gradle text
+*.properties text
+
+# Documents
+*.md text
+*.json text
+*.yml text
+
+# Images
+*.png binary
+*.jpg binary
+*.ico binary
+
+# Archives
+*.zip binary
+*.jar binary

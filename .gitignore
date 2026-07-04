@@ -1,0 +1,17 @@
+# IDE
+.idea/
+.vs/
+*.suo
+*.user
+*.sln.docstates
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Build outputs
+**/bin/
+**/obj/
+**/build/
+**/out/
