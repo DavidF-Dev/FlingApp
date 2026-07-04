@@ -9,16 +9,53 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import dev.davidfdev.fling.server.configureFling
+import io.ktor.server.engine.EmbeddedServer
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.netty.NettyApplicationEngine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class FlingService : Service() {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
         startInForeground(buildNotification())
+        startServer()
         return START_STICKY
+    }
+
+    private fun startServer() {
+        scope.launch {
+            try {
+                val deviceName = Build.MODEL
+                server = embeddedServer(Netty, port = PORT, host = "0.0.0.0") {
+                    configureFling(deviceName)
+                }.also { it.start(wait = false) }
+                Log.i(TAG, "Server started on port $PORT")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start server", e)
+                stopSelf()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        server?.stop(1000, 2000)
+        server = null
+        scope.cancel()
+        super.onDestroy()
     }
 
     private fun createNotificationChannel() {
@@ -62,7 +99,9 @@ class FlingService : Service() {
     }
 
     companion object {
+        private const val TAG = "FlingService"
         const val CHANNEL_ID = "fling_service"
         const val NOTIFICATION_ID = 1
+        const val PORT = 7291
     }
 }

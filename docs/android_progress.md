@@ -36,32 +36,32 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 2: Ktor HTTP Server & `/ping`
+## Phase 2: Ktor HTTP Server & `/ping` ✓
 
 **Goal:** The foreground service embeds a Ktor HTTP server. The `/ping` endpoint responds to requests.
 
 ### Tasks
 
-- [ ] Embed a Ktor Netty server inside `FlingService`, started/stopped with the service lifecycle.
-- [ ] Listen on `0.0.0.0:7291`.
-- [ ] Install `ContentNegotiation` with `kotlinx.serialization.json`.
-- [ ] Implement `GET /ping` — returns `{"status":"ok","name":"<device_model>","version":"1.0.0"}`. No auth check yet. Uses `Build.MODEL` for the name (user-configurable name deferred to Phase 9).
-- [ ] Handle server start failure gracefully (e.g., port already in use) — log and stop the service.
-- [ ] Add `INTERNET` permission to the manifest.
+- [x] Embed a Ktor Netty server inside `FlingService`, started/stopped with the service lifecycle.
+- [x] Listen on `0.0.0.0:7291`.
+- [x] Install `ContentNegotiation` with `kotlinx.serialization.json`.
+- [x] Implement `GET /ping` — returns `{"status":"ok","name":"<device_model>","version":"1.0.0"}`. No auth check yet. Uses `Build.MODEL` for the name (user-configurable name deferred to Phase 9).
+- [x] Handle server start failure gracefully (e.g., port already in use) — log and stop the service.
+- [x] Add `INTERNET` permission to the manifest.
 
 > **Decision:** The persistent notification text stays as "Fling is running" — no IP or port shown. The device IP will be displayed in the Compose UI (Phase 8).
 
 ### Unit Tests
 
-- [ ] `GET /ping` returns 200 with correct JSON shape (`status`, `name`, `version`) — via Ktor `testApplication`.
-- [ ] Unknown routes return 404 (not a stack trace).
+- [x] `GET /ping` returns 200 with correct JSON shape (`status`, `name`, `version`) — via Ktor `testApplication`.
+- [x] Unknown routes return 404 (not a stack trace).
 
 ### Verification
 
-1. Start the service on the AVD.
-2. From the host PC terminal: `adb forward tcp:7291 tcp:7291` then `curl http://localhost:7291/ping`
-3. Confirm JSON response with status, name, and version.
-4. Stop the service — confirm the server stops accepting connections.
+1. ~~Start the service on the AVD.~~
+2. ~~From the host PC terminal: `adb forward tcp:7291 tcp:7291` then `curl http://localhost:7291/ping`~~
+3. ~~Confirm JSON response with status, name, and version.~~
+4. ~~Stop the service — confirm the server stops accepting connections.~~
 
 > **Note:** The AVD and host communicate via the emulator's network. Use `adb forward tcp:7291 tcp:7291` if the AVD IP is not directly reachable, then curl `http://localhost:7291/ping`.
 
