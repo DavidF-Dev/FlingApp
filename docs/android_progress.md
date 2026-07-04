@@ -14,7 +14,7 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ### Tasks
 
-- [ ] Create a new Android project (package: `com.fling.app`, min SDK 26, target SDK 36).
+- [ ] Create a new Android project (package: `dev.davidfdev.fling`, min SDK 26, target SDK 36).
 - [ ] Add Gradle dependencies: Jetpack Compose (BOM), Material 3, Ktor (server-netty, content-negotiation, kotlinx-serialization), DataStore Preferences, Accompanist (permissions if needed).
 - [ ] Create `FlingService` — a foreground service that:
   - Creates a notification channel (`fling_service`) on start.
