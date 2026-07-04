@@ -45,9 +45,11 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 - [ ] Embed a Ktor Netty server inside `FlingService`, started/stopped with the service lifecycle.
 - [ ] Listen on `0.0.0.0:7291`.
 - [ ] Install `ContentNegotiation` with `kotlinx.serialization.json`.
-- [ ] Implement `GET /ping` — returns `{"status":"ok","name":"<device_model>","version":"1.0.0"}`. No auth check yet.
-- [ ] Update the persistent notification to include the device's local IP address (e.g., "Listening on 192.168.1.50:7291").
+- [ ] Implement `GET /ping` — returns `{"status":"ok","name":"<device_model>","version":"1.0.0"}`. No auth check yet. Uses `Build.MODEL` for the name (user-configurable name deferred to Phase 9).
 - [ ] Handle server start failure gracefully (e.g., port already in use) — log and stop the service.
+- [ ] Add `INTERNET` permission to the manifest.
+
+> **Decision:** The persistent notification text stays as "Fling is running" — no IP or port shown. The device IP will be displayed in the Compose UI (Phase 8).
 
 ### Unit Tests
 
@@ -57,10 +59,9 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 ### Verification
 
 1. Start the service on the AVD.
-2. Note the IP shown in the notification.
-3. From the host PC terminal: `curl http://<ip>:7291/ping`
-4. Confirm JSON response with status, name, and version.
-5. Stop the service — confirm the server stops accepting connections.
+2. From the host PC terminal: `adb forward tcp:7291 tcp:7291` then `curl http://localhost:7291/ping`
+3. Confirm JSON response with status, name, and version.
+4. Stop the service — confirm the server stops accepting connections.
 
 > **Note:** The AVD and host communicate via the emulator's network. Use `adb forward tcp:7291 tcp:7291` if the AVD IP is not directly reachable, then curl `http://localhost:7291/ping`.
 
@@ -251,7 +252,7 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 ### Tasks
 
 - [ ] Design a single-screen layout:
-  - **Top section:** Service status toggle (listening / stopped), IP and port display.
+  - **Top section:** Service status toggle (listening / stopped), device IP and port display (this is where the IP is shown — not in the notification, per Phase 2 decision).
   - **Middle section:** List of paired devices (name, paired date). Swipe-to-delete to unpair.
   - **Bottom section:** Recent items list (text preview or image thumbnail, timestamp). Tap to copy.
 - [ ] Wire up to `DeviceRepository` (paired devices) and `ClipboardBuffer` (recent items) using Flows.
@@ -276,7 +277,8 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ### Tasks
 
-- [ ] Create a `Settings` data class with defaults: `port: Int = 7291`, `maxSizeMb: Int = 10`, `rateLimitPerMinute: Int = 10`, `notificationTimeoutMinutes: Int = 5`, `bufferSize: Int = 10`, `serviceEnabled: Boolean = true`.
+- [ ] Create a `Settings` data class with defaults: `port: Int = 7291`, `maxSizeMb: Int = 10`, `rateLimitPerMinute: Int = 10`, `notificationTimeoutMinutes: Int = 5`, `bufferSize: Int = 10`, `serviceEnabled: Boolean = true`, `deviceName: String = Build.MODEL`.
+- [ ] **User-configurable device name:** The `/ping` response `name` field uses `Build.MODEL` by default (set in Phase 2). Allow the user to override it in Settings.
 - [ ] Store settings in DataStore.
 - [ ] Add a Settings screen (Compose) accessible from the main screen.
 - [ ] Changing the port requires a service restart — prompt the user.
