@@ -19,8 +19,9 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 - [x] Set up the test infrastructure: JUnit 4, kotlinx-coroutines-test, Ktor test dependencies in `build.gradle.kts`.
 - [ ] Create `FlingService` — a foreground service that:
   - Creates a notification channel (`fling_service`) on start.
-  - Posts a persistent notification: "Fling is listening on port 7291".
+  - Posts a persistent notification: "Fling is running". Tapping the notification opens `MainActivity` (brings to front if already open).
   - Runs as `START_STICKY`.
+  - Foreground service type: `specialUse`.
 - [ ] Create a minimal Compose `MainActivity` with a single button: Start / Stop service.
 - [ ] Add `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`, and `POST_NOTIFICATIONS` permissions to the manifest.
 - [ ] Handle the POST_NOTIFICATIONS runtime permission request on API 33+.
@@ -275,11 +276,12 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ### Tasks
 
-- [ ] Create a `Settings` data class with defaults: `port: Int = 7291`, `maxSizeMb: Int = 10`, `rateLimitPerMinute: Int = 10`, `notificationTimeoutMinutes: Int = 5`, `bufferSize: Int = 10`.
+- [ ] Create a `Settings` data class with defaults: `port: Int = 7291`, `maxSizeMb: Int = 10`, `rateLimitPerMinute: Int = 10`, `notificationTimeoutMinutes: Int = 5`, `bufferSize: Int = 10`, `serviceEnabled: Boolean = true`.
 - [ ] Store settings in DataStore.
 - [ ] Add a Settings screen (Compose) accessible from the main screen.
 - [ ] Changing the port requires a service restart — prompt the user.
 - [ ] Wire settings into the Ktor server, rate limiter, notification builder, and buffer.
+- [ ] **Remember last state + auto-start:** Persist the service toggle state in DataStore. On app launch (and on boot in Phase 10), auto-start the service if it was previously enabled.
 
 ### Unit Tests
 
