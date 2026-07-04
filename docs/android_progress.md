@@ -8,31 +8,31 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 1: Project Scaffolding & Foreground Service
+## Phase 1: Project Scaffolding & Foreground Service ✓
 
-**Goal:** An Android app that starts a foreground service with a persistent notification showing "Fling is listening on port 7291". No HTTP server yet — just the service lifecycle.
+**Goal:** An Android app that starts a foreground service with a persistent notification showing "Fling is running". No HTTP server yet — just the service lifecycle.
 
 ### Tasks
 
 - [x] Create a new Android project (package: `dev.davidfdev.fling`, min SDK 26, target SDK 36).
 - [x] Add Gradle dependencies: Jetpack Compose (BOM), Material 3, Ktor (server-netty, content-negotiation, kotlinx-serialization), DataStore Preferences. Note: `kotlin-android` plugin is not needed under AGP 9 (bundled via `kotlin-compose`). Accompanist not needed (Compose BOM handles permissions).
 - [x] Set up the test infrastructure: JUnit 4, kotlinx-coroutines-test, Ktor test dependencies in `build.gradle.kts`.
-- [ ] Create `FlingService` — a foreground service that:
+- [x] Create `FlingService` — a foreground service that:
   - Creates a notification channel (`fling_service`) on start.
   - Posts a persistent notification: "Fling is running". Tapping the notification opens `MainActivity` (brings to front if already open).
   - Runs as `START_STICKY`.
   - Foreground service type: `specialUse`.
-- [ ] Create a minimal Compose `MainActivity` with a single button: Start / Stop service.
-- [ ] Add `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`, and `POST_NOTIFICATIONS` permissions to the manifest.
-- [ ] Handle the POST_NOTIFICATIONS runtime permission request on API 33+.
+- [x] Create a minimal Compose `MainActivity` with a single button: Start / Stop service.
+- [x] Add `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`, and `POST_NOTIFICATIONS` permissions to the manifest.
+- [x] Handle the POST_NOTIFICATIONS runtime permission request on API 33+.
 
 ### Verification
 
-1. Build and install on Pixel_8 AVD.
-2. Tap "Start" — persistent notification appears in the shade.
-3. Tap "Stop" — notification disappears.
-4. Kill the app from recents — service continues running (START_STICKY).
-5. No crashes in Logcat.
+1. ~~Build and install on Pixel_8 AVD.~~
+2. ~~Tap "Start" — persistent notification appears in the shade.~~
+3. ~~Tap "Stop" — notification disappears.~~
+4. ~~Kill the app from recents — service continues running (START_STICKY).~~
+5. ~~No crashes in Logcat.~~
 
 ---
 

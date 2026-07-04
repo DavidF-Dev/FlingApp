@@ -36,6 +36,11 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            excludes += "/META-INF/{INDEX.LIST,DEPENDENCIES,LICENSE.md,NOTICE.md,io.netty.versions.properties}"
+        }
+    }
 }
 
 dependencies {
