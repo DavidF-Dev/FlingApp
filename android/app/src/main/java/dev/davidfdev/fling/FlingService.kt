@@ -11,6 +11,8 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import dev.davidfdev.fling.data.DeviceRepository
+import dev.davidfdev.fling.pairing.NotificationPairingApprover
 import dev.davidfdev.fling.server.configureFling
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
@@ -26,6 +28,7 @@ class FlingService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
+    private var pairingApprover: NotificationPairingApprover? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -37,11 +40,14 @@ class FlingService : Service() {
     }
 
     private fun startServer() {
+        val deviceRepository = DeviceRepository(filesDir.resolve("paired_devices.json"))
+        val approver = NotificationPairingApprover(this).also { pairingApprover = it }
+
         scope.launch {
             try {
                 val deviceName = Build.MODEL
                 server = embeddedServer(Netty, port = PORT, host = "0.0.0.0") {
-                    configureFling(deviceName)
+                    configureFling(deviceName, deviceRepository, approver)
                 }.also { it.start(wait = false) }
                 Log.i(TAG, "Server started on port $PORT")
             } catch (e: Exception) {
@@ -54,6 +60,8 @@ class FlingService : Service() {
     override fun onDestroy() {
         server?.stop(1000, 2000)
         server = null
+        pairingApprover?.destroy()
+        pairingApprover = null
         scope.cancel()
         super.onDestroy()
     }
