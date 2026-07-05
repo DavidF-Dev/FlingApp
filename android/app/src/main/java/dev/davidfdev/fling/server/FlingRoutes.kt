@@ -41,10 +41,6 @@ fun Application.configureFling(
     val pairingInProgress = AtomicBoolean(false)
 
     routing {
-        get("/ping") {
-            call.respond(PingResponse(status = "ok", name = deviceName, version = "1.0.0"))
-        }
-
         post("/pair") {
             val request = try {
                 call.receive<PairRequest>()
@@ -84,6 +80,12 @@ fun Application.configureFling(
                 }
             } finally {
                 pairingInProgress.set(false)
+            }
+        }
+
+        authenticated(deviceRepository) {
+            get("/ping") {
+                call.respond(PingResponse(status = "ok", name = deviceName, version = "1.0.0"))
             }
         }
     }

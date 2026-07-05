@@ -1,11 +1,14 @@
 package dev.davidfdev.fling.server
 
 import dev.davidfdev.fling.data.DeviceRepository
+import dev.davidfdev.fling.data.PairedDevice
 import dev.davidfdev.fling.pairing.PairingApprover
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -22,11 +25,17 @@ class PingRouteTest {
         override suspend fun requestApproval(deviceName: String) = true
     }
 
-    @Test
-    fun pingReturns200WithCorrectShape() = testApplication {
-        application { configureFling("Test Device", testDeviceRepository(), autoAcceptApprover) }
+    private fun pairedRepo(): DeviceRepository {
+        val repo = testDeviceRepository()
+        runBlocking { repo.store(PairedDevice("PC", "valid-key", 1000L)) }
+        return repo
+    }
 
-        val response = client.get("/ping")
+    @Test
+    fun pingWithValidKeyReturns200() = testApplication {
+        application { configureFling("Test Device", pairedRepo(), autoAcceptApprover) }
+
+        val response = client.get("/ping") { header("X-Fling-Key", "valid-key") }
         assertEquals(HttpStatusCode.OK, response.status)
 
         val body = Json.decodeFromString<PingResponse>(response.bodyAsText())
@@ -37,9 +46,9 @@ class PingRouteTest {
 
     @Test
     fun unknownRouteReturns404() = testApplication {
-        application { configureFling("Test Device", testDeviceRepository(), autoAcceptApprover) }
+        application { configureFling("Test Device", pairedRepo(), autoAcceptApprover) }
 
-        val response = client.get("/nonexistent")
+        val response = client.get("/nonexistent") { header("X-Fling-Key", "valid-key") }
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
 }

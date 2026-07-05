@@ -118,32 +118,32 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 4: API Key Authentication
+## Phase 4: API Key Authentication ✓
 
 **Goal:** The `/ping` and future `/clip` endpoints require a valid `X-Fling-Key` header. Unauthenticated requests get `401`.
 
 ### Tasks
 
-- [ ] Create a Ktor plugin or route interceptor that:
+- [x] Create a Ktor route-scoped plugin that:
   - Reads the `X-Fling-Key` header.
   - Looks it up in the `DeviceRepository`.
   - If missing or not found, responds `401 Unauthorized` with `{"error":"unauthorized"}`.
-- [ ] Apply the interceptor to `/ping` and `/clip` (when it exists). Exclude `/pair` (pairing is how you get a key).
-- [ ] Return a structured 401 JSON body, not a Ktor default HTML error page.
+- [x] Apply via `authenticated(deviceRepository) { }` route grouping to `/ping` (and future `/clip`). `/pair` remains outside (no key required).
+- [x] Return a structured 401 JSON body, not a Ktor default HTML error page.
 
 ### Unit Tests
 
-- [ ] Request without `X-Fling-Key` header → 401 with JSON body — via `testApplication`.
-- [ ] Request with unknown key → 401.
-- [ ] Request with valid key → 200 (passes through to the route handler).
-- [ ] `/pair` is not affected by the interceptor (no key required).
+- [x] Request without `X-Fling-Key` header → 401 with JSON body — via `testApplication`.
+- [x] Request with unknown key → 401.
+- [x] Request with valid key → 200 (passes through to the route handler).
+- [x] `/pair` is not affected by the interceptor (no key required).
 
 ### Verification
 
-1. Pair a test device (Phase 3).
-2. `curl http://<ip>:7291/ping` (no header) → 401.
-3. `curl http://<ip>:7291/ping -H "X-Fling-Key: wrong"` → 401.
-4. `curl http://<ip>:7291/ping -H "X-Fling-Key: abc123"` → 200 with ping response.
+1. ~~Pair a test device (Phase 3).~~
+2. ~~`curl http://localhost:7291/ping` (no header) → 401.~~
+3. ~~`curl http://localhost:7291/ping -H "X-Fling-Key: wrong"` → 401.~~
+4. ~~`curl http://localhost:7291/ping -H "X-Fling-Key: abc123"` → 200 with ping response.~~
 
 ---
 
