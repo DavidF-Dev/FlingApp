@@ -1,6 +1,9 @@
 package dev.davidfdev.fling.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -12,6 +15,8 @@ class DeviceRepository(private val file: File) {
 
     private val mutex = Mutex()
     private val json = Json { prettyPrint = true }
+    private val _flow = MutableStateFlow<List<PairedDevice>>(emptyList())
+    val flow: StateFlow<List<PairedDevice>> = _flow.asStateFlow()
 
     suspend fun getAll(): List<PairedDevice> = mutex.withLock {
         readFile()
@@ -30,11 +35,17 @@ class DeviceRepository(private val file: File) {
             devices.add(device)
         }
         writeFile(devices)
+        _flow.value = devices.toList()
     }
 
     suspend fun delete(apiKey: String) = mutex.withLock {
         val devices = readFile().filter { it.apiKey != apiKey }
         writeFile(devices)
+        _flow.value = devices
+    }
+
+    suspend fun refreshFlow() {
+        _flow.value = getAll()
     }
 
     private suspend fun readFile(): List<PairedDevice> = withContext(Dispatchers.IO) {

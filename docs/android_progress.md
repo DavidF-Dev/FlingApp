@@ -265,29 +265,36 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 8: Compose UI — Main Screen
+## Phase 8: Compose UI — Main Screen ✓
 
 **Goal:** A Compose UI showing service status, paired devices, and recent clipboard items.
 
+> **Decisions:**
+>
+> - **Data flow:** `DeviceRepository` and `ClipboardBuffer` are owned by a custom `Application` subclass (`FlingApplication`). Both the service and UI access them from there.
+> - **Reactivity:** Both `ClipboardBuffer` and `DeviceRepository` expose `StateFlow` directly. `ClipboardBuffer` emits `List<ClipItem>` on every `add()`. `DeviceRepository` emits `List<PairedDevice>` on `store()` and `delete()`. ViewModel collects these flows — no polling.
+> - **IP address:** Uses `NetworkInterface` enumeration (no extra permissions needed). Displays the first non-loopback IPv4 address, or "Not connected" if none found.
+> - **Service state:** A `StateFlow<Boolean>` in `FlingApplication` that the service sets on start/stop. The UI observes it.
+> - **Unpair confirmation:** Tapping a paired device shows a confirmation dialog before removing it.
+
 ### Tasks
 
-- [ ] Design a single-screen layout:
-  - **Top section:** Service status toggle (listening / stopped), device IP and port display (this is where the IP is shown — not in the notification, per Phase 2 decision).
-  - **Middle section:** List of paired devices (name, paired date). Swipe-to-delete to unpair.
-  - **Bottom section:** Recent items list (text preview or image thumbnail, timestamp). Tap to copy.
-- [ ] Wire up to `DeviceRepository` (paired devices) and `ClipboardBuffer` (recent items) using Flows.
-- [ ] Observe service state — update the toggle when the service starts/stops.
-- [ ] Material 3 theming with system dynamic colors where available, light/dark mode support.
+- [x] Design a single-screen layout:
+  - **Top section:** Service status card with toggle (listening / stopped), device IP and port display.
+  - **Middle section:** List of paired devices (name, paired date). Tap to unpair with confirmation dialog.
+  - **Bottom section:** Recent items list (text preview or image label, timestamp). Tap to copy.
+- [x] Wire up to `DeviceRepository` (paired devices) and `ClipboardBuffer` (recent items) using StateFlows.
+- [x] Observe service state — update the toggle when the service starts/stops.
+- [x] Material 3 theming with system dynamic colors where available, light/dark mode support.
 
 ### Verification
 
-1. Open the app — UI renders with service toggle.
-2. Start service — status updates, IP displayed.
-3. Pair a device via curl — device appears in the list.
-4. Send content via curl — item appears in the recent list.
-5. Tap a recent item — copied to clipboard (toast confirms).
-6. Swipe a paired device — confirm it's removed (and its key is deleted from DataStore).
-7. Toggle dark mode in system settings — theme updates.
+1. ~~Open the app — UI renders with service toggle.~~
+2. ~~Start service — status updates, IP displayed.~~
+3. ~~Pair a device via curl — device appears in the list.~~
+4. ~~Send content via curl — item appears in the recent list.~~
+5. ~~Tap a recent item — copied to clipboard (toast confirms).~~
+6. ~~Tap a paired device — confirmation dialog appears, remove works.~~
 
 ---
 

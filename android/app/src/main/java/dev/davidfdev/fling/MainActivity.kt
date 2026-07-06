@@ -1,10 +1,13 @@
 package dev.davidfdev.fling
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -12,13 +15,26 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,9 +42,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.davidfdev.fling.data.ClipItem
+import dev.davidfdev.fling.data.PairedDevice
+import dev.davidfdev.fling.ui.MainViewModel
 import dev.davidfdev.fling.ui.theme.FlingTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,55 +63,241 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FlingTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ServiceToggleScreen(modifier = Modifier.padding(innerPadding))
-                }
+                MainScreen()
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val app = application as FlingApplication
+        CoroutineScope(Dispatchers.IO).launch {
+            app.deviceRepository.refreshFlow()
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServiceToggleScreen(modifier: Modifier = Modifier) {
+private fun MainScreen(viewModel: MainViewModel = viewModel()) {
     val context = LocalContext.current
-    var isRunning by remember { mutableStateOf(false) }
+    val isRunning by viewModel.serviceRunning.collectAsState()
+    val devices by viewModel.pairedDevices.collectAsState()
+    val clipItems by viewModel.clipboardItems.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
             startFlingService(context)
-            isRunning = true
         }
     }
 
-    Column(
-        modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("Fling") })
+        },
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                ServiceStatusCard(
+                    isRunning = isRunning,
+                    onToggle = { enabled ->
+                        if (enabled) {
+                            if (needsNotificationPermission(context)) {
+                                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                startFlingService(context)
+                            }
+                        } else {
+                            stopFlingService(context)
+                        }
+                    },
+                )
+            }
+
+            item {
+                SectionHeader("Paired Devices")
+            }
+
+            if (devices.isEmpty()) {
+                item {
+                    Text(
+                        text = "No paired devices",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+            } else {
+                items(devices, key = { it.apiKey }) { device ->
+                    PairedDeviceRow(
+                        device = device,
+                        onUnpair = { viewModel.unpairDevice(device.apiKey) },
+                    )
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionHeader("Recent Clips")
+            }
+
+            if (clipItems.isEmpty()) {
+                item {
+                    Text(
+                        text = "No clips received yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+            } else {
+                items(clipItems, key = { it.receivedAt }) { clipItem ->
+                    ClipItemRow(clipItem = clipItem)
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun ServiceStatusCard(isRunning: Boolean, onToggle: (Boolean) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(
-            text = if (isRunning) "Fling is running" else "Fling is stopped",
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Switch(
-            checked = isRunning,
-            onCheckedChange = { enabled ->
-                if (enabled) {
-                    if (needsNotificationPermission(context)) {
-                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        startFlingService(context)
-                        isRunning = true
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = if (isRunning) "Fling is running" else "Fling is stopped",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    if (isRunning) {
+                        val ip = remember { MainViewModel.getDeviceIp() }
+                        Text(
+                            text = if (ip != null) "$ip:${FlingService.PORT}" else "Not connected",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                } else {
-                    stopFlingService(context)
-                    isRunning = false
+                }
+                Switch(checked = isRunning, onCheckedChange = onToggle)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
+    HorizontalDivider()
+}
+
+@Composable
+private fun PairedDeviceRow(device: PairedDevice, onUnpair: () -> Unit) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Unpair device") },
+            text = { Text("Remove \"${device.name}\" from paired devices?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirmDialog = false
+                    onUnpair()
+                }) {
+                    Text("Remove")
                 }
             },
-            modifier = Modifier.padding(top = 16.dp),
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            },
         )
     }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { showConfirmDialog = true },
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text = device.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = formatDate(device.pairedAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClipItemRow(clipItem: ClipItem) {
+    val context = LocalContext.current
+
+    Card(
+        onClick = {
+            if (clipItem.type.startsWith("text/")) {
+                val text = String(clipItem.data)
+                val clip = ClipData.newPlainText("Fling", text)
+                context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = when {
+                    clipItem.type == "image/png" -> "[Image]"
+                    clipItem.type.startsWith("text/") -> {
+                        val text = String(clipItem.data)
+                        if (text.length > 100) text.take(100) + "…" else text
+                    }
+                    else -> "[${clipItem.type}]"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = formatDate(clipItem.receivedAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+private fun formatDate(timestamp: Long): String {
+    val format = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+    return format.format(Date(timestamp))
 }
 
 private fun needsNotificationPermission(context: android.content.Context): Boolean =
