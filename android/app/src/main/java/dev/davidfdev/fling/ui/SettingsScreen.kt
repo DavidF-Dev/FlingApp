@@ -1,5 +1,9 @@
 package dev.davidfdev.fling.ui
 
+import android.content.Context
+import android.content.Intent
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,8 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +55,22 @@ fun SettingsScreen(
     var nameText by remember(settings.deviceName) { mutableStateOf(settings.deviceName) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var showPortMessage by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    var batteryOptimized by remember {
+        mutableStateOf(isBatteryOptimizationDisabled(context))
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryOptimized = isBatteryOptimizationDisabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         topBar = {
@@ -145,7 +170,45 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Battery",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            if (batteryOptimized) {
+                Text(
+                    text = "Battery optimization is disabled for Fling.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = "Fling may be stopped by the system to save battery. Disable battery optimization to keep it running reliably.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Button(onClick = { openBatterySettings(context) }) {
+                    Text("Open battery settings")
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+private fun isBatteryOptimizationDisabled(context: Context): Boolean {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun openBatterySettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 }

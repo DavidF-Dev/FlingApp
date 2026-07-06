@@ -24,6 +24,8 @@ class FlingApplication : Application() {
         private set
     lateinit var settingsRepository: SettingsRepository
         private set
+    lateinit var connectivityObserver: ConnectivityObserver
+        private set
 
     private val _serviceRunning = MutableStateFlow(false)
     val serviceRunning: StateFlow<Boolean> = _serviceRunning.asStateFlow()
@@ -33,6 +35,7 @@ class FlingApplication : Application() {
         deviceRepository = DeviceRepository(filesDir.resolve("paired_devices.json"))
         clipboardBuffer = ClipboardBuffer()
         settingsRepository = SettingsRepository(this)
+        connectivityObserver = ConnectivityObserver(this)
 
         appScope.launch {
             settingsRepository.initializeDefaults()

@@ -21,6 +21,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val serviceRunning: StateFlow<Boolean> = app.serviceRunning
 
+    val isWifiConnected: StateFlow<Boolean> = app.connectivityObserver.isWifiConnected
+
     val pairedDevices: StateFlow<List<PairedDevice>> = app.deviceRepository.flow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

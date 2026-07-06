@@ -99,6 +99,7 @@ private fun FlingApp(viewModel: MainViewModel = viewModel()) {
 private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     val isRunning by viewModel.serviceRunning.collectAsState()
+    val isWifiConnected by viewModel.isWifiConnected.collectAsState()
     val devices by viewModel.pairedDevices.collectAsState()
     val clipItems by viewModel.clipboardItems.collectAsState()
     val settings by viewModel.settings.collectAsState()
@@ -133,6 +134,7 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
             item {
                 ServiceStatusCard(
                     isRunning = isRunning,
+                    isWifiConnected = isWifiConnected,
                     port = settings.port,
                     deviceName = settings.deviceName,
                     onToggle = { enabled ->
@@ -199,6 +201,7 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
 @Composable
 private fun ServiceStatusCard(
     isRunning: Boolean,
+    isWifiConnected: Boolean,
     port: Int,
     deviceName: String,
     onToggle: (Boolean) -> Unit,
@@ -236,6 +239,14 @@ private fun ServiceStatusCard(
                     }
                 }
                 Switch(checked = isRunning, onCheckedChange = onToggle)
+            }
+            if (isRunning && !isWifiConnected) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Not connected to Wi-Fi — devices on the local network cannot reach Fling.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }

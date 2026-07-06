@@ -332,7 +332,7 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 10: Polish & Edge Cases
+## Phase 10: Polish & Edge Cases ✓
 
 **Goal:** Handle real-world edge cases and polish the experience.
 
@@ -347,11 +347,11 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ### Tasks
 
-- [ ] **Boot auto-start:** Add `RECEIVE_BOOT_COMPLETED` permission and a `BootReceiver` that reads `settingsRepository.serviceEnabled` and starts `FlingService` if true.
-- [ ] **Wi-Fi awareness:** Add `ACCESS_NETWORK_STATE` permission. Create a `ConnectivityObserver` using `NetworkCallback` exposing a `StateFlow<Boolean>` for Wi-Fi connected state. Display a warning in `ServiceStatusCard` when not on Wi-Fi and service is running.
-- [ ] **Battery optimization:** Add a "Battery optimization" row in SettingsScreen. Check `PowerManager.isIgnoringBatteryOptimizations()`. If not exempted, show a button that launches `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` wrapped in `runCatching`. Re-check on resume via `LifecycleEventObserver`.
-- [ ] **ProGuard / R8:** Set `optimization { enable = true }` in the release build type. Add `proguard-rules.pro` with keep rules for Ktor, Netty, and kotlinx-serialization `@Serializable` classes.
-- [ ] **App icon:** Create adaptive icon resources (`ic_launcher` foreground/background). White paper airplane on #2563EB blue background. Generate all density buckets (mdpi through xxxhdpi).
+- [x] **Boot auto-start:** Add `RECEIVE_BOOT_COMPLETED` permission and a `BootReceiver` that reads `settingsRepository.serviceEnabled` and starts `FlingService` if true.
+- [x] **Wi-Fi awareness:** Add `ACCESS_NETWORK_STATE` permission. Create a `ConnectivityObserver` using `NetworkCallback` exposing a `StateFlow<Boolean>` for Wi-Fi connected state. Display a warning in `ServiceStatusCard` when not on Wi-Fi and service is running.
+- [x] **Battery optimization:** Add a "Battery optimization" row in SettingsScreen. Check `PowerManager.isIgnoringBatteryOptimizations()`. If not exempted, show a button that launches `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` wrapped in `runCatching`. Re-check on resume via `LifecycleEventObserver`.
+- [x] **ProGuard / R8:** Set `optimization { enable = true }` in the release build type. Add `proguard-rules.pro` with keep rules for Ktor, Netty, and kotlinx-serialization `@Serializable` classes.
+- [x] **App icon:** Replace adaptive icon resources (`ic_launcher` foreground/background). White paper airplane on #2563EB blue background. Uses vector drawables via `mipmap-anydpi` (minSdk 26).
 
 ### Verification
 
