@@ -54,6 +54,7 @@ fun Application.configureFling(
     pairingApprover: PairingApprover,
     clipboardBuffer: ClipboardBuffer,
     contentNotifier: ContentNotifier? = null,
+    rateLimiter: RateLimiter? = null,
 ) {
     install(ContentNegotiation) {
         json(Json { encodeDefaults = true })
@@ -105,61 +106,63 @@ fun Application.configureFling(
         }
 
         authenticated(deviceRepository) {
-            get("/ping") {
-                call.respond(PingResponse(status = "ok", name = deviceName, version = "1.0.0"))
-            }
-
-            post("/clip") {
-                val request = try {
-                    call.receive<ClipRequest>()
-                } catch (_: Exception) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("invalid request body"))
-                    return@post
+            rateLimited(rateLimiter ?: RateLimiter()) {
+                get("/ping") {
+                    call.respond(PingResponse(status = "ok", name = deviceName, version = "1.0.0"))
                 }
 
-                if (request.type.isNullOrBlank() || request.data.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("type and data are required"))
-                    return@post
-                }
-
-                if (request.type !in SUPPORTED_TYPES) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("unsupported type: ${request.type}"))
-                    return@post
-                }
-
-                val rawBytes = try {
-                    java.util.Base64.getDecoder().decode(request.data)
-                } catch (_: Exception) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("invalid base64 data"))
-                    return@post
-                }
-
-                val decoded = if (request.compressed) {
-                    try {
-                        GZIPInputStream(ByteArrayInputStream(rawBytes)).readBytes()
+                post("/clip") {
+                    val request = try {
+                        call.receive<ClipRequest>()
                     } catch (_: Exception) {
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("invalid gzip data"))
+                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("invalid request body"))
                         return@post
                     }
-                } else {
-                    rawBytes
+
+                    if (request.type.isNullOrBlank() || request.data.isNullOrBlank()) {
+                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("type and data are required"))
+                        return@post
+                    }
+
+                    if (request.type !in SUPPORTED_TYPES) {
+                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("unsupported type: ${request.type}"))
+                        return@post
+                    }
+
+                    val rawBytes = try {
+                        java.util.Base64.getDecoder().decode(request.data)
+                    } catch (_: Exception) {
+                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("invalid base64 data"))
+                        return@post
+                    }
+
+                    val decoded = if (request.compressed) {
+                        try {
+                            GZIPInputStream(ByteArrayInputStream(rawBytes)).readBytes()
+                        } catch (_: Exception) {
+                            call.respond(HttpStatusCode.BadRequest, ErrorResponse("invalid gzip data"))
+                            return@post
+                        }
+                    } else {
+                        rawBytes
+                    }
+
+                    if (decoded.size > MAX_DECODED_BYTES) {
+                        call.respond(HttpStatusCode.PayloadTooLarge, ErrorResponse("payload exceeds 10 MB"))
+                        return@post
+                    }
+
+                    val item = ClipItem(
+                        type = request.type,
+                        data = decoded,
+                        timestamp = request.timestamp ?: System.currentTimeMillis(),
+                        receivedAt = System.currentTimeMillis(),
+                    )
+                    clipboardBuffer.add(item)
+                    contentNotifier?.notify(item)
+
+                    call.respond(StatusResponse(status = "ok"))
                 }
-
-                if (decoded.size > MAX_DECODED_BYTES) {
-                    call.respond(HttpStatusCode.PayloadTooLarge, ErrorResponse("payload exceeds 10 MB"))
-                    return@post
-                }
-
-                val item = ClipItem(
-                    type = request.type,
-                    data = decoded,
-                    timestamp = request.timestamp ?: System.currentTimeMillis(),
-                    receivedAt = System.currentTimeMillis(),
-                )
-                clipboardBuffer.add(item)
-                contentNotifier?.notify(item)
-
-                call.respond(StatusResponse(status = "ok"))
             }
         }
     }

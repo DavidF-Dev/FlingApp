@@ -15,6 +15,7 @@ import dev.davidfdev.fling.content.NotificationContentNotifier
 import dev.davidfdev.fling.data.ClipboardBuffer
 import dev.davidfdev.fling.data.DeviceRepository
 import dev.davidfdev.fling.pairing.NotificationPairingApprover
+import dev.davidfdev.fling.server.RateLimiter
 import dev.davidfdev.fling.server.configureFling
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
@@ -52,7 +53,7 @@ class FlingService : Service() {
             try {
                 val deviceName = Build.MODEL
                 server = embeddedServer(Netty, port = PORT, host = "0.0.0.0") {
-                    configureFling(deviceName, deviceRepository, approver, clipboardBuffer, notifier)
+                    configureFling(deviceName, deviceRepository, approver, clipboardBuffer, notifier, RateLimiter())
                 }.also { it.start(wait = false) }
                 Log.i(TAG, "Server started on port $PORT")
             } catch (e: Exception) {

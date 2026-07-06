@@ -232,30 +232,36 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 7: Rate Limiting
+## Phase 7: Rate Limiting ✓
 
 **Goal:** The Android server enforces rate limiting to protect itself from runaway clients.
 
+> **Decisions:**
+>
+> - **Algorithm:** Sliding window — track timestamps of recent requests per key, reject when count in the last 60s exceeds the limit. Simple and predictable for MVP.
+> - **Enforcement:** A separate route-scoped plugin applied alongside auth inside the `authenticated` block. Auth checks identity, rate limiter checks volume — concerns stay separate.
+> - **Clock source:** Injectable `() -> Long` time provider (defaulting to `System.currentTimeMillis()`) so unit tests can control time without real delays.
+> - **Memory cleanup:** Skipped for MVP — paired device count is tiny, per-key timestamp lists are negligible.
+
 ### Tasks
 
-- [ ] Implement a simple token-bucket or sliding-window rate limiter: 10 requests per minute, per API key.
-- [ ] Apply to `/clip` and `/ping`. Exclude `/pair`.
-- [ ] When rate limited, respond `429 Too Many Requests` with `{"error":"rate_limited"}`.
+- [x] Implement a sliding-window rate limiter: 10 requests per minute, per API key.
+- [x] Apply as a route-scoped plugin to `/clip` and `/ping`. Exclude `/pair`.
+- [x] When rate limited, respond `429 Too Many Requests` with `{"error":"rate_limited"}`.
 
 ### Unit Tests
 
-- [ ] Rate limiter allows up to the configured limit within the window.
-- [ ] Rate limiter rejects requests beyond the limit.
-- [ ] Rate limiter resets after the window expires (use a controllable clock / `TestCoroutineScheduler`).
-- [ ] Per-key isolation: key A at limit does not block key B.
-- [ ] `/pair` is not rate-limited.
+- [x] Rate limiter allows up to the configured limit within the window.
+- [x] Rate limiter rejects requests beyond the limit.
+- [x] Rate limiter resets after the window expires (use a controllable clock / `TestCoroutineScheduler`).
+- [x] Per-key isolation: key A at limit does not block key B.
+- [x] `/pair` is not rate-limited.
 
 ### Verification
 
-1. Send 10 rapid curl requests to `/clip` → all succeed.
-2. Send an 11th → 429.
-3. Wait 60 seconds → next request succeeds.
-4. Confirm a different API key has its own independent limit.
+1. ~~Send 10 rapid requests to `/ping` → first 10 succeed (200).~~
+2. ~~11th request → 429.~~
+3. ~~`/pair` still returns 200 while rate limited — not affected.~~
 
 ---
 
