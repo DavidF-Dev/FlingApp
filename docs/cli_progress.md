@@ -6,34 +6,34 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 
 ---
 
-## Phase 1: Project Scaffolding & Configuration
+## Phase 1: Project Scaffolding & Configuration ✅
 
 **Goal:** A .NET 8 console app that can read and write a config file at `%APPDATA%\Fling\config.json`.
 
 ### Tasks
 
-- [ ] Create a .NET 8 console project (`cli/Fling.csproj`). Target `net8.0`, output type `Exe`, single-file publish ready.
-- [ ] Add NuGet dependencies: `System.CommandLine` (command-line parsing), `System.Text.Json`.
-- [ ] Define config model classes:
+- [x] Create a .NET 8 console project (`cli/Fling.csproj`). Target `net8.0`, output type `Exe`, single-file publish ready.
+- [x] Add NuGet dependencies: `System.CommandLine` (command-line parsing), `System.Text.Json`.
+- [x] Define config model classes:
   - `FlingConfig`: `Devices: List<DeviceConfig>`, `MaxSizeMb: int = 10`, `Compress: bool = true`.
   - `DeviceConfig`: `Name: string`, `Host: string`, `Port: int = 7291`, `ApiKey: string`, `Default: bool`.
-- [ ] Create `ConfigStore`:
+- [x] Create `ConfigStore`:
   - `Load()` — reads `%APPDATA%\Fling\config.json`. Returns defaults if file doesn't exist.
   - `Save(FlingConfig)` — writes config. Creates the directory if needed.
-- [ ] Wire up a top-level `fling` command with `System.CommandLine` (no subcommands yet — just `--version`).
+- [x] Wire up a top-level `fling` command with `System.CommandLine` (no subcommands yet — just `--version`).
 
 ### Unit Tests
 
-- [ ] `ConfigStore` round-trips: save a config, load it back, assert equality.
-- [ ] `ConfigStore` handles missing file — returns defaults.
-- [ ] `ConfigStore` handles corrupt JSON — throws a clear exception (not a cryptic deserialization error).
-- [ ] `DeviceConfig` defaults: port is 7291, no device is default by default.
+- [x] `ConfigStore` round-trips: save a config, load it back, assert equality.
+- [x] `ConfigStore` handles missing file — returns defaults.
+- [x] `ConfigStore` handles corrupt JSON — throws a clear exception (not a cryptic deserialization error).
+- [x] `DeviceConfig` defaults: port is 7291, no device is default by default.
 
 ### Verification
 
-1. `dotnet run -- --version` → prints version string.
-2. First run creates `%APPDATA%\Fling\` directory (empty, no config yet until pairing).
-3. All unit tests pass: `dotnet test`.
+1. ✅ `dotnet run -- --version` → prints version string.
+2. ✅ First run creates `%APPDATA%\Fling\` directory (empty, no config yet until pairing).
+3. ✅ All unit tests pass: `dotnet test` (7/7).
 
 ---
 
