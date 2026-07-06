@@ -336,22 +336,31 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 **Goal:** Handle real-world edge cases and polish the experience.
 
+> **Decisions:**
+>
+> - **Wi-Fi awareness:** Use `ConnectivityManager` with `NetworkCallback` for live updates. Display a warning banner in the `ServiceStatusCard` on the Main Screen (not as a notification). Requires `ACCESS_NETWORK_STATE` permission.
+> - **Battery optimization:** A button in the Settings screen that opens `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`. Wrapped in `runCatching` since some OEMs crash on this intent. Check status via `PowerManager.isIgnoringBatteryOptimizations()`, re-check on `onResume`. If already exempted, show "Battery optimization disabled" (non-actionable).
+> - **Boot auto-start:** `BOOT_COMPLETED` BroadcastReceiver that checks `settingsRepository.serviceEnabled` and starts the foreground service if true. Requires `RECEIVE_BOOT_COMPLETED` permission.
+> - **ProGuard / R8:** Enable optimization in release build type. Add keep rules for Ktor Netty (`io.netty.**`, `io.ktor.**`) and kotlinx-serialization (`@Serializable` classes). Verify release APK works on AVD.
+> - **App icon:** Classic paper airplane (white on blue #2563EB). Minimal, clean design — pointing upper-right. Matches the existing notification icon theme. Adaptive icon with round/square mask support.
+> - **Concurrent pairing / error handling:** Already handled in earlier phases (Phase 3 rejects concurrent; Phases 2-5 return clean JSON errors). No additional work needed.
+
 ### Tasks
 
-- [ ] **Wi-Fi awareness:** Detect when the device is not on Wi-Fi and show a warning in the UI and notification.
-- [ ] **Battery optimization:** Guide the user to disable battery optimization for Fling (or the service may be killed). Show a prompt if not exempted.
-- [ ] **Service auto-start on boot:** Add a `BOOT_COMPLETED` BroadcastReceiver to restart the service if it was running before reboot.
-- [ ] **Concurrent pairing requests:** Queue or reject a second pairing request while one is pending.
-- [ ] **Error handling:** Malformed JSON, unexpected content types, huge headers — all return clean JSON errors, not stack traces.
-- [ ] **ProGuard / R8 rules:** Ensure Ktor and kotlinx-serialization survive minification.
-- [ ] **App icon and branding.**
+- [ ] **Boot auto-start:** Add `RECEIVE_BOOT_COMPLETED` permission and a `BootReceiver` that reads `settingsRepository.serviceEnabled` and starts `FlingService` if true.
+- [ ] **Wi-Fi awareness:** Add `ACCESS_NETWORK_STATE` permission. Create a `ConnectivityObserver` using `NetworkCallback` exposing a `StateFlow<Boolean>` for Wi-Fi connected state. Display a warning in `ServiceStatusCard` when not on Wi-Fi and service is running.
+- [ ] **Battery optimization:** Add a "Battery optimization" row in SettingsScreen. Check `PowerManager.isIgnoringBatteryOptimizations()`. If not exempted, show a button that launches `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` wrapped in `runCatching`. Re-check on resume via `LifecycleEventObserver`.
+- [ ] **ProGuard / R8:** Set `optimization { enable = true }` in the release build type. Add `proguard-rules.pro` with keep rules for Ktor, Netty, and kotlinx-serialization `@Serializable` classes.
+- [ ] **App icon:** Create adaptive icon resources (`ic_launcher` foreground/background). White paper airplane on #2563EB blue background. Generate all density buckets (mdpi through xxxhdpi).
 
 ### Verification
 
-1. Turn off Wi-Fi on the AVD — warning appears.
-2. Reboot the AVD — service restarts automatically.
-3. Send malformed JSON to every endpoint — confirm clean 400 responses, no crashes.
-4. Build a release APK — install and verify all features work with minification enabled.
+1. Turn off Wi-Fi on the AVD — warning appears in the status card.
+2. Turn Wi-Fi back on — warning disappears (live update via NetworkCallback).
+3. Reboot the AVD with service previously enabled — service restarts automatically.
+4. Open Settings — battery optimization row shows current status.
+5. Build a release APK with R8 enabled — install and verify all features work.
+6. App icon appears correctly in the launcher.
 
 ---
 
