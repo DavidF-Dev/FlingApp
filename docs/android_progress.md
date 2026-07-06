@@ -196,34 +196,39 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 6: Notifications & Tap-to-Copy
+## Phase 6: Notifications & Tap-to-Copy ✓
 
 **Goal:** When content arrives, a notification appears. Tapping the notification copies the content to the phone's clipboard.
 
+> **Decisions:**
+>
+> - **Notification posting:** A `ContentNotifier` interface (similar to `PairingApprover`) is passed into `configureFling()`. The `/clip` route calls `contentNotifier.notify(item)` after adding to the buffer. The service provides the real implementation (`NotificationContentNotifier`) with `Context` access. Tests use a fake.
+> - **Image clipboard:** Images are written to a temp file and exposed via `FileProvider` (`content://` URI). Requires a `FileProvider` declaration in the manifest and a `file_paths.xml` resource.
+> - **Notification tap mechanism:** A `BroadcastReceiver` handles the tap action (consistent with the pairing pattern). The receiver copies content to `ClipboardManager`, shows a toast, and dismisses the notification.
+> - **Notification IDs:** `AtomicInteger` counter gives each clip a unique notification ID. The receiver dismisses the specific notification on tap.
+
 ### Tasks
 
-- [ ] Create a second notification channel (`fling_content`) for received content notifications.
-- [ ] When a `ClipItem` is added to the buffer, post a notification:
+- [x] Create a second notification channel (`fling_content`) for received content notifications.
+- [x] When a `ClipItem` is added to the buffer, post a notification:
   - **Text:** Show a preview (first ~100 characters, truncated).
   - **Image:** Show the image as a `BigPictureStyle` notification thumbnail.
   - Each notification gets a unique ID (use a counter or timestamp).
-- [ ] On notification tap (PendingIntent → BroadcastReceiver or Activity):
+- [x] On notification tap (PendingIntent → BroadcastReceiver or Activity):
   - Write the content to the system clipboard (`ClipboardManager`).
   - For `text/plain` and `text/html`: set as `ClipData.newPlainText` / `newHtmlText`.
   - For `image/png`: write to a temporary `FileProvider` URI and set as `ClipData.newUri`.
   - Show a toast: "Copied to clipboard".
   - Dismiss the notification.
-- [ ] Auto-expire notifications after 5 minutes (use `setTimeoutAfter` on the notification builder).
+- [x] Auto-expire notifications after 5 minutes (use `setTimeoutAfter` on the notification builder).
 
 ### Verification
 
-1. Send text via curl (Phase 5 test).
-2. Confirm a notification appears with a text preview.
-3. Tap the notification → open any text field → paste → confirm the sent text appears.
-4. Send an image (base64-encode a small PNG, send as `image/png`).
-5. Confirm a notification with image thumbnail appears.
-6. Tap → paste into a messaging app → confirm image pastes.
-7. Wait 5 minutes (or lower the timeout for testing) → confirm notification auto-dismisses.
+1. ~~Send text via curl — notification appears with text preview.~~
+2. ~~Tap notification — content copied to clipboard, toast shown.~~
+3. ~~Long text truncated in preview, full text copied on tap.~~
+4. ~~Send image (10x10 PNG) — notification with BigPictureStyle preview appears.~~
+5. ~~Tap image notification — image URI copied to clipboard.~~
 
 ---
 

@@ -1,5 +1,6 @@
 package dev.davidfdev.fling.server
 
+import dev.davidfdev.fling.content.ContentNotifier
 import dev.davidfdev.fling.data.ClipItem
 import dev.davidfdev.fling.data.ClipboardBuffer
 import dev.davidfdev.fling.data.DeviceRepository
@@ -52,6 +53,7 @@ fun Application.configureFling(
     deviceRepository: DeviceRepository,
     pairingApprover: PairingApprover,
     clipboardBuffer: ClipboardBuffer,
+    contentNotifier: ContentNotifier? = null,
 ) {
     install(ContentNegotiation) {
         json(Json { encodeDefaults = true })
@@ -155,6 +157,7 @@ fun Application.configureFling(
                     receivedAt = System.currentTimeMillis(),
                 )
                 clipboardBuffer.add(item)
+                contentNotifier?.notify(item)
 
                 call.respond(StatusResponse(status = "ok"))
             }
