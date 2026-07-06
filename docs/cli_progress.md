@@ -88,7 +88,7 @@ The CLI is the **client** in this architecture — it sends content to the Andro
   - On `"status": "accepted"`: save the device to config. Print success message with device name.
   - On `"status": "rejected"`: print rejection message. Don't save.
   - On timeout/connection error: print a clear error message.
-- [ ] If a device with the same host:port already exists in config, prompt (or use `--force`) before re-pairing.
+- [ ] If a device with the same host:port or same name already exists in config, prompt (or use `--force`) before re-pairing. Device names must be unique — this is the stable identifier used for future auto-discovery (Phase 10).
 
 ### Unit Tests
 
@@ -293,6 +293,27 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 1. `dotnet publish -c Release` → produces a single `fling.exe`.
 2. Copy `fling.exe` to a machine without .NET → `fling --version` works.
 3. Full end-to-end: `fling pair`, `fling send --text "test"`, `fling status` — all work from the published binary.
+
+---
+
+## Phase 10: Auto-Discovery & Self-Healing (Future)
+
+**Goal:** Once paired, the CLI automatically finds the phone on any network without manual IP entry.
+
+**Context:** The current plan stores a fixed IP per device. If the phone's IP changes (e.g., switching between home and office Wi-Fi), the user must re-pair manually. This phase eliminates that friction — as long as the PC and phone are on the same network and were paired in the past, the CLI self-heals without user intervention.
+
+**Approach:**
+- The Android app advertises a service via mDNS (e.g., `_fling._tcp`) including its device name.
+- At send time, `DeviceResolver` attempts mDNS discovery first. If it finds a service whose name matches a paired device, it uses the discovered IP (and updates the stored config). Falls back to the stored IP if discovery fails.
+- No changes to the protocol, config model, or send flow — discovery is purely an address-resolution layer.
+
+**Prerequisite — device name uniqueness:** The device name is the stable identifier that links a discovered service to a config entry. Names must be unique across paired devices. `fling pair` must enforce this (reject duplicate names unless `--force` re-pairing). The API key is already unique (cryptographically random per pairing).
+
+**Dependencies:**
+- .NET mDNS library (e.g., `Makaretu.Dns.Multicast` or `Zeroconf`).
+- Android NSD (Network Service Discovery) integration in the foreground service.
+
+**Deferred until after Phase 9.** Nothing in Phases 2–9 needs to change to accommodate this — `DeviceResolver` already abstracts device lookup, and the config model stores name + key alongside host/port.
 
 ---
 
