@@ -12,6 +12,8 @@ android {
         }
     }
 
+    base.archivesName.set("fling")
+
     defaultConfig {
         applicationId = "dev.davidfdev.fling"
         minSdk = 26
