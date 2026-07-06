@@ -364,6 +364,24 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
+## Appendix: Device Install Script
+
+`android/scripts/install-device.ps1` builds and installs the APK on a USB-connected physical device. Adapted from StelaApp's equivalent script.
+
+```powershell
+# Default: build release and install
+powershell -File scripts/install-device.ps1
+
+# Debug build, reinstall (wipes data), set up port forwarding
+powershell -File scripts/install-device.ps1 -DebugBuild -Reinstall -Forward
+```
+
+Flags: `-DebugBuild`, `-NoBuild`, `-Reinstall`, `-NoLaunch`, `-Forward` (adb forward tcp:7291), `-Force` (skip confirmation).
+
+APK naming: `base.archivesName` is set to `"fling"`, producing `fling-debug.apk` and `fling-release.apk`.
+
+---
+
 ## Appendix: Unit Testing Strategy
 
 ### What to Unit Test vs. AVD-Test
