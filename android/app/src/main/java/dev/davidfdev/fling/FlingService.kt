@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import dev.davidfdev.fling.data.ClipboardBuffer
 import dev.davidfdev.fling.data.DeviceRepository
 import dev.davidfdev.fling.pairing.NotificationPairingApprover
 import dev.davidfdev.fling.server.configureFling
@@ -42,12 +43,13 @@ class FlingService : Service() {
     private fun startServer() {
         val deviceRepository = DeviceRepository(filesDir.resolve("paired_devices.json"))
         val approver = NotificationPairingApprover(this).also { pairingApprover = it }
+        val clipboardBuffer = ClipboardBuffer()
 
         scope.launch {
             try {
                 val deviceName = Build.MODEL
                 server = embeddedServer(Netty, port = PORT, host = "0.0.0.0") {
-                    configureFling(deviceName, deviceRepository, approver)
+                    configureFling(deviceName, deviceRepository, approver, clipboardBuffer)
                 }.also { it.start(wait = false) }
                 Log.i(TAG, "Server started on port $PORT")
             } catch (e: Exception) {

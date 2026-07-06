@@ -1,5 +1,6 @@
 package dev.davidfdev.fling.server
 
+import dev.davidfdev.fling.data.ClipboardBuffer
 import dev.davidfdev.fling.data.DeviceRepository
 import dev.davidfdev.fling.pairing.PairingApprover
 import io.ktor.client.request.post
@@ -37,7 +38,7 @@ class PairRouteTest {
     @Test
     fun pairWithValidBodyReturnsAccepted() = testApplication {
         val repo = testDeviceRepository()
-        application { configureFling("Phone", repo, autoAcceptApprover) }
+        application { configureFling("Phone", repo, autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/pair") {
             contentType(ContentType.Application.Json)
@@ -52,7 +53,7 @@ class PairRouteTest {
 
     @Test
     fun pairWithMissingNameReturns400() = testApplication {
-        application { configureFling("Phone", testDeviceRepository(), autoAcceptApprover) }
+        application { configureFling("Phone", testDeviceRepository(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/pair") {
             contentType(ContentType.Application.Json)
@@ -63,7 +64,7 @@ class PairRouteTest {
 
     @Test
     fun pairWithMissingKeyReturns400() = testApplication {
-        application { configureFling("Phone", testDeviceRepository(), autoAcceptApprover) }
+        application { configureFling("Phone", testDeviceRepository(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/pair") {
             contentType(ContentType.Application.Json)
@@ -74,7 +75,7 @@ class PairRouteTest {
 
     @Test
     fun pairWithMalformedJsonReturns400() = testApplication {
-        application { configureFling("Phone", testDeviceRepository(), autoAcceptApprover) }
+        application { configureFling("Phone", testDeviceRepository(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/pair") {
             contentType(ContentType.Application.Json)
@@ -86,7 +87,7 @@ class PairRouteTest {
     @Test
     fun pairIdempotentRePairAcceptsImmediately() = testApplication {
         val repo = testDeviceRepository()
-        application { configureFling("Phone", repo, autoAcceptApprover) }
+        application { configureFling("Phone", repo, autoAcceptApprover, ClipboardBuffer()) }
 
         // First pair
         client.post("/pair") {
@@ -110,7 +111,7 @@ class PairRouteTest {
 
     @Test
     fun pairRejectedWhenApproverRejects() = testApplication {
-        application { configureFling("Phone", testDeviceRepository(), autoRejectApprover) }
+        application { configureFling("Phone", testDeviceRepository(), autoRejectApprover, ClipboardBuffer()) }
 
         val response = client.post("/pair") {
             contentType(ContentType.Application.Json)
@@ -129,7 +130,7 @@ class PairRouteTest {
         val blockingApprover = object : PairingApprover {
             override suspend fun requestApproval(deviceName: String): Boolean = gate.await()
         }
-        application { configureFling("Phone", testDeviceRepository(), blockingApprover) }
+        application { configureFling("Phone", testDeviceRepository(), blockingApprover, ClipboardBuffer()) }
 
         // First request blocks on approval — fire and forget via externalServices isn't needed;
         // we use a coroutine scope from the test framework.

@@ -147,15 +147,20 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 5: Receive Clipboard Content (`/clip`)
+## Phase 5: Receive Clipboard Content (`/clip`) ✓
 
 **Goal:** The phone can receive text and image content via `POST /clip` and store it in an in-memory buffer.
 
+> **Decisions:**
+>
+> - **Buffer ownership:** `ClipboardBuffer` is created in `FlingService` and passed into `configureFling(...)`. Later phases (notifications, UI) access it from the service.
+> - **Max payload size:** Enforced on the decoded content (after base64 decode + gunzip), not on the raw HTTP body. Checking after decode is sufficient for MVP.
+
 ### Tasks
 
-- [ ] Define a `ClipItem` data class: `type: String` (MIME), `data: ByteArray` (decoded from base64), `timestamp: Long`, `receivedAt: Long`.
-- [ ] Create `ClipboardBuffer` — an in-memory ring buffer holding the last 10 items. Thread-safe.
-- [ ] Implement `POST /clip`:
+- [x] Define a `ClipItem` data class: `type: String` (MIME), `data: ByteArray` (decoded from base64), `timestamp: Long`, `receivedAt: Long`.
+- [x] Create `ClipboardBuffer` — an in-memory ring buffer holding the last 10 items. Thread-safe.
+- [x] Implement `POST /clip`:
   - Requires `X-Fling-Key` authentication (Phase 4 interceptor).
   - Parse request body: `{ "type": "text/plain", "data": "<base64>", "timestamp": 1720100000 }`.
   - Validate `type` is one of: `text/plain`, `text/html`, `image/png`.
@@ -164,37 +169,30 @@ This is a **live document** tracking the phased implementation of the Fling Andr
   - Enforce max payload size (default 10 MB on the decoded content). Return `413` if exceeded.
   - Add to `ClipboardBuffer`.
   - Respond `{"status":"ok"}`.
-- [ ] Return appropriate error responses:
+- [x] Return appropriate error responses:
   - `400` for malformed JSON or unsupported type.
   - `413` for oversized payloads.
 
 ### Unit Tests
 
-- [ ] `POST /clip` with valid text payload → 200, item added to buffer — via `testApplication`.
-- [ ] `POST /clip` with valid `image/png` payload → 200.
-- [ ] Unsupported MIME type → 400.
-- [ ] Malformed JSON → 400.
-- [ ] Payload exceeding max size → 413.
-- [ ] Missing required fields (`type`, `data`) → 400.
-- [ ] GZip-encoded text: send with `"compressed": true`, verify gunzipped content matches original.
-- [ ] `ClipboardBuffer`: add items, verify FIFO eviction at capacity (ring buffer behavior).
-- [ ] `ClipboardBuffer`: thread safety — concurrent writes don't corrupt state (use `runBlocking` + coroutines).
+- [x] `POST /clip` with valid text payload → 200, item added to buffer — via `testApplication`.
+- [x] `POST /clip` with valid `image/png` payload → 200.
+- [x] Unsupported MIME type → 400.
+- [x] Malformed JSON → 400.
+- [x] Payload exceeding max size → 413.
+- [x] Missing required fields (`type`, `data`) → 400.
+- [x] GZip-encoded text: send with `"compressed": true`, verify gunzipped content matches original.
+- [x] `ClipboardBuffer`: add items, verify FIFO eviction at capacity (ring buffer behavior).
+- [x] `ClipboardBuffer`: thread safety — concurrent writes don't corrupt state (use `runBlocking` + coroutines).
 
 ### Verification
 
-1. Pair a device.
-2. Send plain text:
-   ```
-   curl -X POST http://<ip>:7291/clip \
-     -H "X-Fling-Key: abc123" \
-     -H "Content-Type: application/json" \
-     -d '{"type":"text/plain","data":"SGVsbG8gV29ybGQ=","timestamp":1720100000}'
-   ```
-   Confirm `{"status":"ok"}`.
-3. Send with a bad key → 401.
-4. Send with an unsupported type (e.g., `application/pdf`) → 400.
-5. Send an oversized payload → 413.
-6. (Buffer verification happens via UI in Phase 7 or via logs for now.)
+1. ~~Pair a device.~~
+2. ~~Send plain text → `{"status":"ok"}`.~~
+3. ~~Send with a bad key → 401.~~
+4. ~~Send with an unsupported type (e.g., `application/pdf`) → 400.~~
+5. ~~Send malformed JSON → 400.~~
+6. ~~Send gzip-compressed text with `"compressed": true` → `{"status":"ok"}`.~~
 
 ---
 
