@@ -23,10 +23,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -48,7 +52,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.davidfdev.fling.data.ClipItem
 import dev.davidfdev.fling.data.PairedDevice
+import dev.davidfdev.fling.data.Settings
 import dev.davidfdev.fling.ui.MainViewModel
+import dev.davidfdev.fling.ui.SettingsScreen
 import dev.davidfdev.fling.ui.theme.FlingTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,7 +69,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FlingTheme {
-                MainScreen()
+                FlingApp()
             }
         }
     }
@@ -77,13 +83,25 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Composable
+private fun FlingApp(viewModel: MainViewModel = viewModel()) {
+    var showSettings by remember { mutableStateOf(false) }
+
+    if (showSettings) {
+        SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
+    } else {
+        MainScreen(viewModel = viewModel, onOpenSettings = { showSettings = true })
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MainScreen(viewModel: MainViewModel = viewModel()) {
+private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     val isRunning by viewModel.serviceRunning.collectAsState()
     val devices by viewModel.pairedDevices.collectAsState()
     val clipItems by viewModel.clipboardItems.collectAsState()
+    val settings by viewModel.settings.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -95,7 +113,14 @@ private fun MainScreen(viewModel: MainViewModel = viewModel()) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Fling") })
+            TopAppBar(
+                title = { Text("Fling") },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    }
+                },
+            )
         },
     ) { innerPadding ->
         LazyColumn(
@@ -108,6 +133,8 @@ private fun MainScreen(viewModel: MainViewModel = viewModel()) {
             item {
                 ServiceStatusCard(
                     isRunning = isRunning,
+                    port = settings.port,
+                    deviceName = settings.deviceName,
                     onToggle = { enabled ->
                         if (enabled) {
                             if (needsNotificationPermission(context)) {
@@ -170,7 +197,12 @@ private fun MainScreen(viewModel: MainViewModel = viewModel()) {
 }
 
 @Composable
-private fun ServiceStatusCard(isRunning: Boolean, onToggle: (Boolean) -> Unit) {
+private fun ServiceStatusCard(
+    isRunning: Boolean,
+    port: Int,
+    deviceName: String,
+    onToggle: (Boolean) -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -180,15 +212,24 @@ private fun ServiceStatusCard(isRunning: Boolean, onToggle: (Boolean) -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (isRunning) "Fling is running" else "Fling is stopped",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     if (isRunning) {
+                        if (deviceName.isNotBlank()) {
+                            Text(
+                                text = deviceName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         val ip = remember { MainViewModel.getDeviceIp() }
                         Text(
-                            text = if (ip != null) "$ip:${FlingService.PORT}" else "Not connected",
+                            text = if (ip != null) "$ip:$port" else "Not connected",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

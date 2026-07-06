@@ -298,32 +298,37 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 9: Settings & Configuration
+## Phase 9: Settings & Configuration ✓
 
-**Goal:** User can configure port, rate limit, notification timeout, and max payload size.
+**Goal:** User can configure port and device name. Service auto-starts on app launch if previously enabled.
+
+> **Decisions:**
+>
+> - **Scope:** Trimmed to essentials for MVP — port, device name, service auto-start. Rate limit, max payload, notification timeout, and buffer size remain hardcoded.
+> - **Storage:** DataStore Preferences (three scalar values: port int, device name string, service enabled boolean).
+> - **Device name:** Random two-word name generated on first launch from an embedded word list (~50 adjectives + ~50 nouns). Free-text editable in Settings with a "regenerate" button. Validated non-blank.
+> - **Settings navigation:** Separate Compose screen accessible via a gear icon in the main screen's top app bar.
+> - **Port change UX:** Shows a message "Restart the service for changes to take effect." Auto-restart deferred.
+> - **Auto-start:** In `FlingApplication.onCreate()` — starts the foreground service if `serviceEnabled` was true when the app was last used. Works for user-initiated launches; boot-start deferred to Phase 10.
 
 ### Tasks
 
-- [ ] Create a `Settings` data class with defaults: `port: Int = 7291`, `maxSizeMb: Int = 10`, `rateLimitPerMinute: Int = 10`, `notificationTimeoutMinutes: Int = 5`, `bufferSize: Int = 10`, `serviceEnabled: Boolean = true`.
-- [ ] **Persistent device name:** Generate a random two-word name on first launch (e.g., "Handsome Orange", similar to LocalSend). Store in Settings. Used as the phone's identity in `/ping` and `/pair` responses. The user may override it in Settings, understanding this can cause desync with the PC's stored copy (the CLI can refresh its copy from `/ping` passively).
-- [ ] Store settings in DataStore.
-- [ ] Add a Settings screen (Compose) accessible from the main screen.
-- [ ] Changing the port requires a service restart — prompt the user.
-- [ ] Wire settings into the Ktor server, rate limiter, notification builder, and buffer.
-- [ ] **Remember last state + auto-start:** Persist the service toggle state in DataStore. On app launch (and on boot in Phase 10), auto-start the service if it was previously enabled.
-
-### Unit Tests
-
-- [ ] `Settings` defaults: all fields have expected default values.
-- [ ] Settings round-trip via DataStore: save, reload, assert equality.
-- [ ] Validation: port out of range (0, 65536+), negative maxSize, negative rate limit — rejected with clear error.
+- [x] Create a `Settings` data class with defaults: `port: Int = 7291`, `deviceName: String = <random>`, `serviceEnabled: Boolean = false`.
+- [x] Store settings in DataStore Preferences.
+- [x] **Persistent device name:** Generate a random two-word name on first launch from an embedded word list. Used as the phone's identity in `/ping` and `/pair` responses.
+- [x] Add a Settings screen (Compose) accessible via gear icon in the top app bar. Fields: port (numeric), device name (free-text + regenerate button).
+- [x] Changing the port shows a message: "Restart the service for changes to take effect."
+- [x] Wire settings into the Ktor server (port, device name).
+- [x] **Remember last state + auto-start:** Persist the service toggle state in DataStore. On app launch, auto-start the service in `FlingApplication.onCreate()` if it was previously enabled.
+- [x] Display device name on main screen status card when service is running.
 
 ### Verification
 
-1. Open Settings — all values show defaults.
-2. Change port to 7292 — service restarts — curl on new port succeeds, old port fails.
-3. Change rate limit to 2 — confirm 429 after 2 requests.
-4. Change notification timeout — confirm notifications expire at the new interval.
+1. ~~Open Settings — device name is a random two-word name, port is 7291.~~
+2. ~~Gear icon in top bar opens Settings screen.~~
+3. ~~`/ping` and `/pair` responses use the random device name.~~
+4. ~~Service auto-starts on app reopen when previously enabled.~~
+5. ~~Device name displayed on main screen status card.~~
 
 ---
 

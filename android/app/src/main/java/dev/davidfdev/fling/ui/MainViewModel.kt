@@ -5,7 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.davidfdev.fling.FlingApplication
 import dev.davidfdev.fling.data.ClipItem
+import dev.davidfdev.fling.data.DeviceNameGenerator
 import dev.davidfdev.fling.data.PairedDevice
+import dev.davidfdev.fling.data.Settings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -25,6 +27,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val clipboardItems: StateFlow<List<ClipItem>> = app.clipboardBuffer.flow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val settings: StateFlow<Settings> = app.settingsRepository.flow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Settings())
+
     fun unpairDevice(apiKey: String) {
         viewModelScope.launch {
             app.deviceRepository.delete(apiKey)
@@ -34,6 +39,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshDevices() {
         viewModelScope.launch {
             app.deviceRepository.refreshFlow()
+        }
+    }
+
+    fun updatePort(port: Int) {
+        viewModelScope.launch {
+            app.settingsRepository.updatePort(port)
+        }
+    }
+
+    fun updateDeviceName(name: String) {
+        viewModelScope.launch {
+            app.settingsRepository.updateDeviceName(name)
+        }
+    }
+
+    fun regenerateDeviceName() {
+        viewModelScope.launch {
+            app.settingsRepository.updateDeviceName(DeviceNameGenerator.generate())
         }
     }
 

@@ -50,8 +50,10 @@ class FlingService : Service() {
 
         scope.launch {
             try {
-                val deviceName = Build.MODEL
-                server = embeddedServer(Netty, port = PORT, host = "0.0.0.0") {
+                val settings = app.settingsRepository.get()
+                val port = settings.port
+                val deviceName = settings.deviceName.ifBlank { Build.MODEL }
+                server = embeddedServer(Netty, port = port, host = "0.0.0.0") {
                     configureFling(
                         deviceName,
                         app.deviceRepository,
@@ -61,7 +63,7 @@ class FlingService : Service() {
                         RateLimiter(),
                     )
                 }.also { it.start(wait = false) }
-                Log.i(TAG, "Server started on port $PORT")
+                Log.i(TAG, "Server started on port $port")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start server", e)
                 stopSelf()
@@ -125,6 +127,5 @@ class FlingService : Service() {
         private const val TAG = "FlingService"
         const val CHANNEL_ID = "fling_service"
         const val NOTIFICATION_ID = 1
-        const val PORT = 7291
     }
 }
