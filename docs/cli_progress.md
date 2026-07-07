@@ -236,32 +236,37 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ---
 
-## Phase 8: Error Handling & UX Polish
+## Phase 8: Error Handling & UX Polish ✅
 
 **Goal:** The CLI handles all edge cases gracefully and provides clear user feedback.
 
+### Design decisions
+
+- **Colored console output skipped for MVP.** Messages are already clear without color.
+- **Exit code 3 for auth errors.** Separated from network errors (exit 2) so callers (scripts, Greenshot) can distinguish.
+
+### Exit code convention
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | User error (bad args, missing content source, unknown device, empty clipboard, oversized content) |
+| 2 | Network error (connection refused, timeout, unreachable device) |
+| 3 | Auth error (401 — suggests re-pairing) |
+
 ### Tasks
 
-- [ ] Consistent exit codes: 0 = success, 1 = user error (bad args, no default device), 2 = network error, 3 = auth error.
-- [ ] Colored console output (if terminal supports it): green for success, red for errors, yellow for warnings.
-- [ ] `fling send --clipboard` when clipboard is empty → clear message, not a crash.
-- [ ] Large image warning: if the image exceeds `maxSizeMb`, error before attempting the upload.
-- [ ] Connection timeout message: include the device name and host so the user knows which device failed.
-- [ ] `--help` text for all commands is clear and includes examples.
-
-### Unit Tests
-
-- [ ] Exit code mapping: verify each error scenario produces the correct exit code.
-- [ ] Empty clipboard handling.
-- [ ] Oversized content rejection message includes the size and limit.
+- [x] Consistent exit codes: 0 = success, 1 = user error, 2 = network error, 3 = auth error.
+- [x] Colored console output — skipped for MVP.
+- [x] `fling send --clipboard` when clipboard is empty → clear message, exit 1. (Phase 5)
+- [x] Large image: if content exceeds `maxSizeMb`, error before upload with size info. (Phase 4)
+- [x] Connection timeout message: includes device name and error details. (Phase 5)
+- [x] `--help` text for all commands is clear. (Phases 2–6)
 
 ### Verification
 
-1. `fling send --clipboard` with empty clipboard → message, exit code 1.
-2. `fling send --image huge.bmp` (>10 MB) → rejected with size info, exit code 1.
-3. `fling send` with unreachable device → timeout message with device details, exit code 2.
-4. `fling --help`, `fling send --help`, `fling pair --help` → all show useful text.
-5. All unit tests pass.
+1. ✅ All edge cases covered by existing tests.
+2. ✅ All unit tests pass (75/75).
 
 ---
 

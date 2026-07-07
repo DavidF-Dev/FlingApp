@@ -164,7 +164,8 @@ public static class SendCommand
 
             var results = await Task.WhenAll(tasks);
 
-            var anyFailed = false;
+            var hasAuthFailure = false;
+            var hasNetworkFailure = false;
             foreach (var (device, result) in results)
             {
                 if (result.Success)
@@ -174,11 +175,16 @@ public static class SendCommand
                 else
                 {
                     Console.Error.WriteLine($"Failed to send to '{device.Name}': {result.Error}");
-                    anyFailed = true;
+                    if (result.AuthFailed)
+                        hasAuthFailure = true;
+                    else
+                        hasNetworkFailure = true;
                 }
             }
 
-            return anyFailed ? 2 : 0;
+            if (hasAuthFailure) return 3;
+            if (hasNetworkFailure) return 2;
+            return 0;
         }));
 
         return command;
