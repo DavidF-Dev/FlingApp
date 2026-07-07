@@ -167,11 +167,11 @@ Enforced on the Android side. Default: 10 requests per minute. Configurable. Ret
 fling pair <ip:port>                # Pair with a new device
 fling pair <ip:port> --name "PC"    # Pair with a custom PC name
 fling pair <ip:port> --force        # Re-pair (new key) even if device exists
-fling send --clipboard              # Send current clipboard (requires --device or --all)
-fling send --image <path>           # Send an image file
-fling send --text "content"         # Send literal text
-fling send --device <name>          # Target a specific device
-fling send --all                    # Send to all paired devices
+fling send --clipboard --device <n>  # Send current clipboard to a device
+fling send --clipboard --all        # Send current clipboard to all devices
+fling send --image <path> --all     # Send an image file
+fling send --text "content" --all   # Send literal text
+fling send --dry-run --clipboard    # Preview without sending
 fling status                        # Check reachability of paired devices
 fling config show                   # Show current configuration
 fling config set --max-size 25      # Update max payload size
@@ -245,6 +245,7 @@ Stored at `%APPDATA%\Fling\config.json`:
 | Re-pair generates a new API key | Safer than reusing old keys; the phone must accept the new pairing request regardless. |
 | PC name fallback: `--name` > `config.hostName` > `Environment.MachineName` | Lets users override generic hostnames (e.g., `DESKTOP-ABC123`) persistently via config or per-command via flag. |
 | `fling config set` uses typed options, not flat key/value | Leverages System.CommandLine validation; avoids hand-rolling type parsing for two settings. |
+| `fling send` requires explicit content source (`--clipboard`, `--image`, `--text`) | No implicit default — prevents accidentally sending stale clipboard content. Error message lists available options. |
 
 ## Future Considerations
 

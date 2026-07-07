@@ -1,6 +1,7 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using Fling.Content;
 
 namespace Fling.Net;
 
@@ -30,6 +31,46 @@ public sealed class FlingHttpClient : IDisposable
 
         return await response.Content.ReadFromJsonAsync<PairResponse>(JsonOptions, ct)
                ?? throw new InvalidOperationException("Empty response from device.");
+    }
+
+    public async Task<SendResult> SendClipAsync(string host, int port, string apiKey, ClipPayload payload, CancellationToken ct = default)
+    {
+        _http.Timeout = TimeSpan.FromSeconds(10);
+
+        var url = $"http://{FormatHost(host)}:{port}/clip";
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(payload, options: JsonOptions),
+        };
+        request.Headers.Add("X-Fling-Key", apiKey);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, ct);
+        }
+        catch (TaskCanceledException)
+        {
+            return new SendResult { Success = false, Error = "Connection timed out." };
+        }
+        catch (HttpRequestException ex)
+        {
+            return new SendResult { Success = false, Error = ex.Message };
+        }
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            return new SendResult { Success = false, Error = "Authentication failed. Try re-pairing with 'fling pair --force'.", AuthFailed = true };
+
+        if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+            return new SendResult { Success = false, Error = "Payload too large — device rejected it." };
+
+        if (response.StatusCode == (HttpStatusCode)429)
+            return new SendResult { Success = false, Error = "Rate limited — device is rejecting requests. Try again shortly." };
+
+        if (!response.IsSuccessStatusCode)
+            return new SendResult { Success = false, Error = $"Device returned HTTP {(int)response.StatusCode}." };
+
+        return new SendResult { Success = true };
     }
 
     public async Task<PingResponse> PingAsync(string host, int port, string apiKey, CancellationToken ct = default)
@@ -70,4 +111,11 @@ public sealed class PingResponse
     public string Status { get; set; } = "";
     public string Name { get; set; } = "";
     public string Version { get; set; } = "";
+}
+
+public sealed class SendResult
+{
+    public bool Success { get; init; }
+    public string? Error { get; init; }
+    public bool AuthFailed { get; init; }
 }

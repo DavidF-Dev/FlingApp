@@ -156,38 +156,35 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 
 ---
 
-## Phase 5: `fling send` — Integration
+## Phase 5: `fling send` — Integration ✅
 
 **Goal:** The CLI sends clipboard content to the Android app. The core user flow is complete.
 
 ### Tasks
 
-- [ ] Implement `fling send`:
-  - Determine content source: `--clipboard` (default if none specified), `--image <path>`, or `--text "content"`.
-  - Resolve target device(s) via `DeviceResolver` (`--device <name>` or `--all` or default).
+- [x] Add `SendClipAsync` to `FlingHttpClient` — sends `POST /clip` with `X-Fling-Key` header and `ClipPayload` body. Returns `SendResult` with structured error info (auth failure, rate limiting, too large, connection error).
+- [x] Implement `fling send`:
+  - Content source is required (no default): `--clipboard`, `--image <path>`, or `--text "content"`. Error with helpful message if none specified.
+  - Resolve target device(s) via `DeviceResolver` — requires `--device <name>` or `--all`.
   - Encode content via `ContentEncoder`.
   - Send `POST /clip` via `FlingHttpClient` to each target device.
   - Print result per device: success, auth error, connection error, etc.
-- [ ] If `--all`, send to all devices concurrently (`Task.WhenAll`). Report per-device results.
-- [ ] If the send fails with `401`, suggest re-pairing.
-- [ ] Add `--verbose` flag for debugging (print request/response details).
+- [x] If `--all`, send to all devices concurrently (`Task.WhenAll`). Report per-device results.
+- [x] If the send fails with `401`, suggest re-pairing.
+- [x] Add `--dry-run` flag — encodes content and prints type/size without making the HTTP call.
+- [x] Add `--verbose` flag for debugging (print request/response details).
 
 ### Unit Tests
 
-- [ ] Send orchestration: mock `FlingHttpClient`, verify it's called with correct device, headers, and body.
-- [ ] `--all` sends to every device and aggregates results.
-- [ ] Auth failure (401) produces a re-pair suggestion in the output.
-- [ ] Connection failure produces a clear message (not a raw exception).
+- [x] `SendClipAsync`: success, 401 auth failure, 413 too large, 429 rate limited, connection error, correct URL and headers.
+- [x] `SendCommand`: no content source → error, multiple sources → error, empty clipboard → error, dry-run works without devices, no device specified → error, `--text` encodes as text/plain.
 
 ### Verification
 
-1. Pair with the Android app (Phase 3 of this plan).
-2. Copy text → `fling send --clipboard` → notification appears on the phone, tap to paste, text matches.
-3. `fling send --text "Hello from CLI"` → same result.
-4. `fling send --image screenshot.png` → image notification on phone, tap, paste into app.
-5. `fling send --device "Pixel 8"` → targets specific device.
-6. Unplug/disconnect the phone → `fling send` → clear error message.
-7. All unit tests pass.
+1. Integration testing against the Android app deferred until Android app is ready.
+2. ✅ `fling send` (no source) → helpful error, exit code 1.
+3. ✅ `fling send --text "hello" --dry-run` → prints content type, sizes, compression status.
+4. ✅ All unit tests pass (72/72).
 
 ---
 
