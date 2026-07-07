@@ -10,5 +10,6 @@ var rootCommand = new RootCommand("Fling — send clipboard content from PC to p
 rootCommand.Subcommands.Add(ConfigCommand.Create(store));
 rootCommand.Subcommands.Add(PairCommand.Create(store));
 rootCommand.Subcommands.Add(SendCommand.Create(store, clipboardReader));
+rootCommand.Subcommands.Add(StatusCommand.Create(store));
 
 return await rootCommand.Parse(args).InvokeAsync();

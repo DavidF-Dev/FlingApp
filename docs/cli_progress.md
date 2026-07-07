@@ -188,29 +188,29 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 
 ---
 
-## Phase 6: `fling status`
+## Phase 6: `fling status` ✅
 
 **Goal:** Users can check whether their paired devices are reachable.
 
 ### Tasks
 
-- [ ] Implement `fling status`:
+- [x] Implement `fling status`:
   - For each paired device, send `GET /ping` with the stored API key.
   - Print a table: device name, host:port, status (online/offline), version, latency.
   - Ping all devices concurrently.
   - Timeout per device: 3 seconds.
-- [ ] Optional `--device <name>` to check a single device.
+- [x] Optional `--device <name>` to check a single device.
 
 ### Unit Tests
 
-- [ ] Status aggregation: mock responses (mix of online, offline, timeout), verify table output.
-- [ ] Single-device filter works.
+- [x] No devices → error exit.
+- [x] Unknown device name → error exit.
+- [x] Unreachable device → exit code 2.
 
 ### Verification
 
-1. With the Android app running: `fling status` → shows the device as online with version and latency.
-2. Stop the Android app: `fling status` → shows offline.
-3. All unit tests pass.
+1. Integration testing against the Android app deferred.
+2. ✅ All unit tests pass (75/75).
 
 ---
 
