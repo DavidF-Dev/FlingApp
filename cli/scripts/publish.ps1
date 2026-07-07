@@ -65,10 +65,21 @@ New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 $stableExe = Join-Path $publishDir 'fling.exe'
 if ($built -ne $stableExe) { Move-Item $built $stableExe -Force }
 
+# Bundle supporting files (LICENSE renamed to .txt for Windows double-click).
+$license = Join-Path $repoRoot '..\LICENSE'
+if (-not (Test-Path $license)) { Fail 'LICENSE not found at repo root' }
+Copy-Item $license (Join-Path $publishDir 'LICENSE.txt') -Force
+Copy-Item (Join-Path $repoRoot 'packaging\README.txt') (Join-Path $publishDir 'README.txt') -Force
+
 $zipName = "fling-$version-win-x64.zip"
 $zipPath = Join-Path $distDir $zipName
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Compress-Archive -Path $stableExe -DestinationPath $zipPath
+$zipItems = @(
+    (Join-Path $publishDir 'fling.exe'),
+    (Join-Path $publishDir 'LICENSE.txt'),
+    (Join-Path $publishDir 'README.txt')
+)
+Compress-Archive -Path $zipItems -DestinationPath $zipPath
 
 # Also copy the bare exe to dist for local use.
 Copy-Item $stableExe (Join-Path $distDir 'fling.exe') -Force

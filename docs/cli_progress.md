@@ -299,16 +299,21 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ---
 
-## Phase 10: Release Zip Polish (Future)
+## Phase 10: Release Zip Polish ✅
 
 **Goal:** The release zip includes supporting files alongside `fling.exe`.
 
 ### Tasks
 
-- [ ] Add `LICENSE` to the zip.
-- [ ] Add `README.txt` — short-form usage summary (not the full repo README.md).
-- [ ] Consider shell completions for PowerShell / bash.
-- [ ] Update `publish.ps1` to bundle the extra files.
+- [x] Add `LICENSE` to the zip — renamed to `LICENSE.txt` at package time (so Windows opens it on double-click). Repo keeps `LICENSE`.
+- [x] Add `README.txt` — short-form usage summary committed at `cli/packaging/README.txt`. Static, version-agnostic, CRLF line endings.
+- [x] Update `publish.ps1` to bundle `fling.exe`, `LICENSE.txt`, and `README.txt`.
+- Shell completions deferred to a future phase.
+
+### Verification
+
+1. ✅ `scripts/publish.ps1` → produces `fling-0.1.0-win-x64.zip` containing `fling.exe`, `LICENSE.txt`, `README.txt`.
+2. ✅ All unit tests pass (75/75).
 
 ---
 
