@@ -195,7 +195,8 @@ Stored at `%APPDATA%\Fling\config.json`:
   ],
   "maxSizeMb": 10,
   "compress": true,
-  "hostName": ""
+  "hostName": "",
+  "log": false
 }
 ```
 
@@ -247,6 +248,7 @@ Stored at `%APPDATA%\Fling\config.json`:
 | `fling config set` uses typed options, not flat key/value | Leverages System.CommandLine validation; avoids hand-rolling type parsing for two settings. |
 | `fling send` requires explicit content source (`--clipboard`, `--image`, `--text`) | No implicit default — prevents accidentally sending stale clipboard content. Error message lists available options. |
 | Greenshot uses `send --image "{0}"`, no bare positional shorthand | One-time config; adding file-path detection adds complexity for no real UX gain. |
+| Opt-in file logging via `config.log` | Logs each invocation (args, exit code, error message) to `%APPDATA%\Fling\fling.log`. Off by default. Essential for debugging third-party callers (e.g., Greenshot) where stderr is not visible. Auto-trims at 2000 lines. |
 
 ## Future Considerations
 

@@ -43,17 +43,24 @@ public static class ConfigCommand
             Description = "Enable or disable GZip compression for text (true/false)",
         };
 
+        var logOption = new Option<bool?>("--log")
+        {
+            Description = "Enable or disable file logging to %APPDATA%\\Fling\\fling.log (true/false)",
+        };
+
         command.Options.Add(maxSizeOption);
         command.Options.Add(compressOption);
+        command.Options.Add(logOption);
 
         command.SetAction((Func<ParseResult, int>)(parseResult =>
         {
             var maxSize = parseResult.GetValue(maxSizeOption);
             var compress = parseResult.GetValue(compressOption);
+            var log = parseResult.GetValue(logOption);
 
-            if (maxSize is null && compress is null)
+            if (maxSize is null && compress is null && log is null)
             {
-                Console.Error.WriteLine("No settings specified. Use --max-size or --compress.");
+                Console.Error.WriteLine("No settings specified. Use --max-size, --compress, or --log.");
                 return 1;
             }
 
@@ -70,6 +77,9 @@ public static class ConfigCommand
 
             if (compress is not null)
                 config.Compress = compress.Value;
+
+            if (log is not null)
+                config.Log = log.Value;
 
             store.Save(config);
             Console.WriteLine("Configuration updated.");
@@ -116,6 +126,7 @@ public static class ConfigCommand
     {
         Console.WriteLine($"Max size:  {config.MaxSizeMb} MB");
         Console.WriteLine($"Compress:  {config.Compress}");
+        Console.WriteLine($"Log:       {config.Log}");
         Console.WriteLine();
 
         if (config.Devices.Count == 0)

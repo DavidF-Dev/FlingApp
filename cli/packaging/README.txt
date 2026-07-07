@@ -22,6 +22,14 @@ Getting started
 
 Run "fling --help" for the full list of commands and options.
 
+Troubleshooting
+---------------
+Enable file logging to diagnose issues (e.g., when invoked by Greenshot):
+
+     fling config set --log true
+
+Logs are written to %APPDATA%\Fling\fling.log. Disable with --log false.
+
 Fling is unsigned, so Windows SmartScreen may warn ("Windows protected your PC"):
 choose "More info", then "Run anyway".
 

@@ -86,6 +86,15 @@ public sealed class ConfigCommandTests : IDisposable
     }
 
     [Fact]
+    public void Set_Log_UpdatesConfig()
+    {
+        Invoke("config", "set", "--log", "true");
+
+        var config = _store.Load();
+        Assert.True(config.Log);
+    }
+
+    [Fact]
     public void Remove_RemovesDevice()
     {
         _store.Save(new FlingConfig
