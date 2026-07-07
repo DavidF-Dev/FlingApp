@@ -293,13 +293,26 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ### Verification
 
-1. ✅ `scripts/publish.ps1` → produces `Fling-0.1.0.exe` (68.5 MB) in `cli/dist/`.
+1. ✅ `scripts/publish.ps1` → produces `fling-<version>-win-x64.zip` in `cli/dist/` containing `fling.exe` (stable name).
 2. ✅ `fling --version` → `0.1.0+<commit>`.
 3. ✅ All unit tests pass (75/75) in Release configuration.
 
 ---
 
-## Phase 10: Auto-Discovery & Self-Healing (Future)
+## Phase 10: Release Zip Polish (Future)
+
+**Goal:** The release zip includes supporting files alongside `fling.exe`.
+
+### Tasks
+
+- [ ] Add `LICENSE` to the zip.
+- [ ] Add `README.txt` — short-form usage summary (not the full repo README.md).
+- [ ] Consider shell completions for PowerShell / bash.
+- [ ] Update `publish.ps1` to bundle the extra files.
+
+---
+
+## Phase 11: Auto-Discovery & Self-Healing (Future)
 
 **Goal:** Once paired, the CLI automatically finds the phone on any network without manual IP entry.
 

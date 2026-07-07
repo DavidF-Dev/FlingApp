@@ -3,10 +3,11 @@
     Build a distributable, self-contained fling.exe.
 
 .DESCRIPTION
-    Publishes a self-contained, single-file, compressed win-x64 build and stages it as
-    dist/Fling-<version>.exe (version read from src/Fling/Fling.csproj, the single
-    source of truth). Prints the SHA-256 so a release can advertise it. Runs the unit
-    tests first unless -SkipTests.
+    Publishes a self-contained, single-file, compressed win-x64 build and packages it as
+    dist/fling-<version>-win-x64.zip (version read from src/Fling/Fling.csproj, the
+    single source of truth). The zip contains fling.exe with a stable name — users extract
+    and overwrite on update. Prints the SHA-256 so a release can advertise it. Runs the
+    unit tests first unless -SkipTests.
 
     The result needs no .NET runtime installed; it is a bare exe meant to be run as-is.
 
@@ -59,13 +60,25 @@ $built = Join-Path $publishDir 'Fling.exe'
 if (-not (Test-Path $built)) { Fail "expected $built not found after publish" }
 
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-$asset = Join-Path $distDir "Fling-$version.exe"
-Copy-Item $built $asset -Force
 
-$sha    = (Get-FileHash $asset -Algorithm SHA256).Hash
-$sizeMb = [math]::Round((Get-Item $asset).Length / 1MB, 1)
+# Rename to the stable name inside the publish dir, then zip from there.
+$stableExe = Join-Path $publishDir 'fling.exe'
+if ($built -ne $stableExe) { Move-Item $built $stableExe -Force }
+
+$zipName = "fling-$version-win-x64.zip"
+$zipPath = Join-Path $distDir $zipName
+if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+Compress-Archive -Path $stableExe -DestinationPath $zipPath
+
+# Also copy the bare exe to dist for local use.
+Copy-Item $stableExe (Join-Path $distDir 'fling.exe') -Force
+
+$sha    = (Get-FileHash $zipPath -Algorithm SHA256).Hash
+$sizeMb = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
+$exeMb  = [math]::Round((Get-Item $stableExe).Length / 1MB, 1)
 
 Write-Host ''
-Write-Host "Built: $asset" -ForegroundColor Green
-Write-Host "  Size    : $sizeMb MB"
-Write-Host "  SHA-256 : $sha"
+Write-Host "Built: $zipPath" -ForegroundColor Green
+Write-Host "  exe size : $exeMb MB"
+Write-Host "  zip size : $sizeMb MB"
+Write-Host "  SHA-256  : $sha"
