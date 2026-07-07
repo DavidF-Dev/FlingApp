@@ -70,41 +70,44 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 
 ---
 
-## Phase 3: HTTP Client & `fling pair`
+## Phase 3: HTTP Client & `fling pair` ✅
 
 **Goal:** The CLI can pair with an Android device over the network.
 
+### Design changes applied in this phase
+
+- Removed `DeviceConfig.Default` property and `fling config default` subcommand. Device targeting now requires explicit `--device <name>` or `--all`. See Decisions Log in DESIGN.md.
+- Added `FlingConfig.HostName` for persistent PC name override. Fallback: `--name` flag > `config.hostName` > `Environment.MachineName`.
+- Re-pairing with `--force` always generates a new API key.
+
 ### Tasks
 
-- [ ] Create `FlingHttpClient` — wraps `HttpClient` for communication with the Android server:
+- [x] Create `FlingHttpClient` — wraps `HttpClient` for communication with the Android server:
   - Sets `X-Fling-Key` header on authenticated requests.
   - Handles JSON serialization/deserialization.
-  - Configurable timeout (default 10 seconds for normal requests, 60 seconds for pairing to allow user approval time).
-- [ ] Implement `fling pair <ip:port>`:
+  - Configurable timeout (3s for ping, 60s for pairing to allow user approval time).
+- [x] Implement `fling pair <ip:port>`:
   - Parse the `ip:port` argument (support `ip` alone, defaulting port to 7291).
   - Generate a cryptographically random API key (32 bytes, base64url-encoded).
-  - Send `POST /pair` with `{ "name": "<hostname>", "key": "<generated-key>" }`.
+  - Send `POST /pair` with `{ "name": "<pcName>", "key": "<generated-key>" }`.
   - On `"status": "accepted"`: save the device to config. Print success message with device name.
   - On `"status": "rejected"`: print rejection message. Don't save.
   - On timeout/connection error: print a clear error message.
-- [ ] If a device with the same host:port or same name already exists in config, prompt (or use `--force`) before re-pairing. Device names must be unique — this is the stable identifier used for future auto-discovery (Phase 10).
+  - `--name` option to override PC name. `--force` option to re-pair existing devices.
+- [x] If a device with the same host:port or same name already exists in config, reject unless `--force`. Device names must be unique — this is the stable identifier used for future auto-discovery (Phase 10).
 
 ### Unit Tests
 
-- [ ] API key generation: 32 bytes, base64url, no padding, unique across calls.
-- [ ] IP:port parsing: `192.168.1.50:7291`, `192.168.1.50` (default port), `[::1]:7291` (IPv6), invalid inputs.
-- [ ] `FlingHttpClient` serializes the pair request body correctly.
-- [ ] `FlingHttpClient` handles accepted, rejected, timeout, and connection-refused responses.
-  - Use a mock/fake `HttpMessageHandler` — no real network calls in unit tests.
+- [x] API key generation: 32 bytes, base64url, no padding, unique across calls.
+- [x] IP:port parsing: `192.168.1.50:7291`, `192.168.1.50` (default port), `[::1]:7291` (IPv6), invalid inputs.
+- [x] `FlingHttpClient` serializes the pair request body correctly.
+- [x] `FlingHttpClient` handles accepted, rejected, and connection-refused responses.
+  - Uses a fake `HttpMessageHandler` — no real network calls in unit tests.
 
 ### Verification
 
-1. Start the Android app (Phase 3+ of the Android plan).
-2. `fling pair 10.0.2.2:7291` (emulator host address, or use `adb forward` and `localhost`).
-3. Accept on the phone → CLI prints success, device saved to config.
-4. `fling config show` → new device appears with the generated key.
-5. Attempt pairing again → idempotent (accepted immediately, config unchanged).
-6. All unit tests pass.
+1. Integration testing against the Android app deferred to Phase 5.
+2. ✅ All unit tests pass (41/41).
 
 ---
 

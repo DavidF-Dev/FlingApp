@@ -86,35 +86,6 @@ public sealed class ConfigCommandTests : IDisposable
     }
 
     [Fact]
-    public void Default_SetsDeviceAsDefault()
-    {
-        _store.Save(new FlingConfig
-        {
-            Devices =
-            [
-                new DeviceConfig { Name = "Phone A", Host = "10.0.0.1", ApiKey = "k1", Default = true },
-                new DeviceConfig { Name = "Phone B", Host = "10.0.0.2", ApiKey = "k2" },
-            ],
-        });
-
-        Invoke("config", "default", "Phone B");
-
-        var config = _store.Load();
-        Assert.False(config.Devices[0].Default);
-        Assert.True(config.Devices[1].Default);
-    }
-
-    [Fact]
-    public void Default_UnknownDevice_ReturnsError()
-    {
-        _store.Save(new FlingConfig());
-
-        var exitCode = Invoke("config", "default", "Nonexistent");
-
-        Assert.NotEqual(0, exitCode);
-    }
-
-    [Fact]
     public void Remove_RemovesDevice()
     {
         _store.Save(new FlingConfig

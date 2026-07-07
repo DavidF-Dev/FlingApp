@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Fling.Config;
 
 namespace Fling.Tests;
@@ -47,7 +46,6 @@ public sealed class ConfigStoreTests : IDisposable
                     Host = "192.168.1.50",
                     Port = 7291,
                     ApiKey = "test-key-abc123",
-                    Default = true,
                 },
                 new DeviceConfig
                 {
@@ -55,7 +53,6 @@ public sealed class ConfigStoreTests : IDisposable
                     Host = "192.168.1.51",
                     Port = 8000,
                     ApiKey = "test-key-def456",
-                    Default = false,
                 },
             ],
             MaxSizeMb = 25,
@@ -75,7 +72,6 @@ public sealed class ConfigStoreTests : IDisposable
             Assert.Equal(original.Devices[i].Host, loaded.Devices[i].Host);
             Assert.Equal(original.Devices[i].Port, loaded.Devices[i].Port);
             Assert.Equal(original.Devices[i].ApiKey, loaded.Devices[i].ApiKey);
-            Assert.Equal(original.Devices[i].Default, loaded.Devices[i].Default);
         }
     }
 
@@ -114,7 +110,6 @@ public sealed class ConfigStoreTests : IDisposable
                     Name = "Test",
                     Host = "10.0.0.1",
                     ApiKey = "key123",
-                    Default = true,
                 },
             ],
             MaxSizeMb = 5,

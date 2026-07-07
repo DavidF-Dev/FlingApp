@@ -11,12 +11,4 @@ public sealed class DeviceConfigTests
 
         Assert.Equal(7291, device.Port);
     }
-
-    [Fact]
-    public void Defaults_NotDefault()
-    {
-        var device = new DeviceConfig();
-
-        Assert.False(device.Default);
-    }
 }

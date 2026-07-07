@@ -7,31 +7,8 @@ public sealed class DeviceResolverTests
     private static FlingConfig CreateConfig(params DeviceConfig[] devices) =>
         new() { Devices = [..devices] };
 
-    private static DeviceConfig Device(string name, bool isDefault = false) =>
-        new() { Name = name, Host = "10.0.0.1", ApiKey = "key", Default = isDefault };
-
-    [Fact]
-    public void Resolve_NoArgs_ReturnsDefaultDevice()
-    {
-        var config = CreateConfig(Device("Phone A"), Device("Phone B", isDefault: true));
-        var resolver = new DeviceResolver(config);
-
-        var result = resolver.Resolve(deviceName: null, all: false);
-
-        Assert.Single(result);
-        Assert.Equal("Phone B", result[0].Name);
-    }
-
-    [Fact]
-    public void Resolve_NoArgs_NoDefault_Throws()
-    {
-        var config = CreateConfig(Device("Phone A"), Device("Phone B"));
-        var resolver = new DeviceResolver(config);
-
-        var ex = Assert.Throws<DeviceResolutionException>(() =>
-            resolver.Resolve(deviceName: null, all: false));
-        Assert.Contains("No default device", ex.Message);
-    }
+    private static DeviceConfig Device(string name) =>
+        new() { Name = name, Host = "10.0.0.1", ApiKey = "key" };
 
     [Fact]
     public void Resolve_NoArgs_NoDevices_Throws()
@@ -42,6 +19,20 @@ public sealed class DeviceResolverTests
         var ex = Assert.Throws<DeviceResolutionException>(() =>
             resolver.Resolve(deviceName: null, all: false));
         Assert.Contains("No paired devices", ex.Message);
+    }
+
+    [Fact]
+    public void Resolve_NoArgs_MultipleDevices_ThrowsWithNames()
+    {
+        var config = CreateConfig(Device("Phone A"), Device("Phone B"));
+        var resolver = new DeviceResolver(config);
+
+        var ex = Assert.Throws<DeviceResolutionException>(() =>
+            resolver.Resolve(deviceName: null, all: false));
+        Assert.Contains("--device", ex.Message);
+        Assert.Contains("--all", ex.Message);
+        Assert.Contains("Phone A", ex.Message);
+        Assert.Contains("Phone B", ex.Message);
     }
 
     [Fact]

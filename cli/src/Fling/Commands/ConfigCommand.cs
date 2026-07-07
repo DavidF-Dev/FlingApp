@@ -11,7 +11,6 @@ public static class ConfigCommand
 
         command.Subcommands.Add(CreateShowCommand(store));
         command.Subcommands.Add(CreateSetCommand(store));
-        command.Subcommands.Add(CreateDefaultCommand(store));
         command.Subcommands.Add(CreateRemoveCommand(store));
 
         return command;
@@ -81,42 +80,6 @@ public static class ConfigCommand
         return command;
     }
 
-    private static Command CreateDefaultCommand(ConfigStore store)
-    {
-        var nameArg = new Argument<string>("device-name")
-        {
-            Description = "Name of the device to set as default",
-        };
-
-        var command = new Command("default", "Set a device as the default target");
-        command.Arguments.Add(nameArg);
-
-        command.SetAction((Func<ParseResult, int>)(parseResult =>
-        {
-            var name = parseResult.GetValue(nameArg);
-            var config = store.Load();
-
-            var device = config.Devices.Find(d =>
-                d.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-
-            if (device is null)
-            {
-                Console.Error.WriteLine($"No paired device named '{name}'.");
-                return 1;
-            }
-
-            foreach (var d in config.Devices)
-                d.Default = false;
-
-            device.Default = true;
-            store.Save(config);
-            Console.WriteLine($"Default device set to '{device.Name}'.");
-            return 0;
-        }));
-
-        return command;
-    }
-
     private static Command CreateRemoveCommand(ConfigStore store)
     {
         var nameArg = new Argument<string>("device-name")
@@ -164,8 +127,7 @@ public static class ConfigCommand
         Console.WriteLine($"Devices ({config.Devices.Count}):");
         foreach (var device in config.Devices)
         {
-            var defaultMarker = device.Default ? " (default)" : "";
-            Console.WriteLine($"  {device.Name}{defaultMarker}");
+            Console.WriteLine($"  {device.Name}");
             Console.WriteLine($"    {device.Host}:{device.Port}");
         }
     }

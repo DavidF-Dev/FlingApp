@@ -11,13 +11,11 @@ public sealed class DeviceResolver
 
     public List<DeviceConfig> Resolve(string? deviceName, bool all)
     {
-        if (all)
-        {
-            if (_config.Devices.Count == 0)
-                throw new DeviceResolutionException("No paired devices. Run 'fling pair <ip:port>' first.");
+        if (_config.Devices.Count == 0)
+            throw new DeviceResolutionException("No paired devices. Run 'fling pair <ip:port>' first.");
 
+        if (all)
             return _config.Devices;
-        }
 
         if (deviceName is not null)
         {
@@ -31,18 +29,9 @@ public sealed class DeviceResolver
             return [device];
         }
 
-        var defaultDevice = _config.Devices.Find(d => d.Default);
-
-        if (defaultDevice is null)
-        {
-            if (_config.Devices.Count == 0)
-                throw new DeviceResolutionException("No paired devices. Run 'fling pair <ip:port>' first.");
-
-            throw new DeviceResolutionException(
-                "No default device set. Use '--device <name>' or run 'fling config default <name>'.");
-        }
-
-        return [defaultDevice];
+        var names = string.Join(", ", _config.Devices.Select(d => $"'{d.Name}'"));
+        throw new DeviceResolutionException(
+            $"Multiple devices paired. Use '--device <name>' or '--all'.\nAvailable: {names}");
     }
 }
 
