@@ -25,5 +25,5 @@ Run "fling --help" for the full list of commands and options.
 Fling is unsigned, so Windows SmartScreen may warn ("Windows protected your PC"):
 choose "More info", then "Run anyway".
 
-Homepage: https://github.com/DavidF-Dev/Fling
+Homepage: https://github.com/DavidF-Dev/FlingApp
 License:  MIT (see LICENSE.txt)
