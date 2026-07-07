@@ -37,17 +37,17 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 
 ---
 
-## Phase 2: Device Management & `fling config`
+## Phase 2: Device Management & `fling config` ✅
 
 **Goal:** Users can view and manage their config from the command line.
 
 ### Tasks
 
-- [ ] Implement `fling config show` — pretty-prints the current config (devices, settings).
-- [ ] Implement `fling config set <key> <value>` — update top-level settings (`maxSizeMb`, `compress`). Validate values.
-- [ ] Implement `fling config default <device-name>` — set a device as the default target.
-- [ ] Implement `fling config remove <device-name>` — remove a paired device.
-- [ ] Add a `DeviceResolver` helper:
+- [x] Implement `fling config show` — pretty-prints the current config (devices, settings).
+- [x] Implement `fling config set` — typed options (`--max-size`, `--compress`) instead of flat key/value. Validates values.
+- [x] Implement `fling config default <device-name>` — set a device as the default target.
+- [x] Implement `fling config remove <device-name>` — remove a paired device.
+- [x] Add a `DeviceResolver` helper:
   - Given an optional `--device <name>` argument, resolve which device(s) to target.
   - If `--device` is provided, find by name (case-insensitive).
   - If `--all` is provided, return all devices.
@@ -55,19 +55,18 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 
 ### Unit Tests
 
-- [ ] `DeviceResolver` returns the default device when no argument is given.
-- [ ] `DeviceResolver` errors when no default is set and no `--device` specified.
-- [ ] `DeviceResolver` finds device by name (case-insensitive).
-- [ ] `DeviceResolver` with `--all` returns all devices.
-- [ ] `fling config set` validates known keys and rejects unknown ones.
+- [x] `DeviceResolver` returns the default device when no argument is given.
+- [x] `DeviceResolver` errors when no default is set and no `--device` specified.
+- [x] `DeviceResolver` finds device by name (case-insensitive).
+- [x] `DeviceResolver` with `--all` returns all devices.
+- [x] `fling config set` validates options and rejects invalid values.
 
 ### Verification
 
-1. `fling config show` — shows empty device list (no devices paired yet).
-2. Manually add a device entry to the config JSON, then `fling config show` — device appears.
-3. `fling config default <name>` — config file updates.
-4. `fling config remove <name>` — device removed from config file.
-5. All unit tests pass.
+1. ✅ `fling config show` — shows empty device list (no devices paired yet).
+2. ✅ `fling config default <name>` — config file updates (unit tested).
+3. ✅ `fling config remove <name>` — device removed from config file (unit tested).
+4. ✅ All unit tests pass (24/24).
 
 ---
 
