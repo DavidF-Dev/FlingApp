@@ -246,6 +246,7 @@ Stored at `%APPDATA%\Fling\config.json`:
 | PC name fallback: `--name` > `config.hostName` > `Environment.MachineName` | Lets users override generic hostnames (e.g., `DESKTOP-ABC123`) persistently via config or per-command via flag. |
 | `fling config set` uses typed options, not flat key/value | Leverages System.CommandLine validation; avoids hand-rolling type parsing for two settings. |
 | `fling send` requires explicit content source (`--clipboard`, `--image`, `--text`) | No implicit default — prevents accidentally sending stale clipboard content. Error message lists available options. |
+| Greenshot uses `send --image "{0}"`, no bare positional shorthand | One-time config; adding file-path detection adds complexity for no real UX gain. |
 
 ## Future Considerations
 

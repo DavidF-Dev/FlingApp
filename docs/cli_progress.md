@@ -214,27 +214,23 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 
 ---
 
-## Phase 7: Greenshot Integration
+## Phase 7: Greenshot Integration ✅
 
 **Goal:** Fling works as a Greenshot External Command Plugin target.
 
-### Tasks
+**No code changes needed.** `fling send --image <path>` (Phase 5) already covers this use case. Exit codes are already correct (0 success, non-zero failure). Bare positional argument shorthand was considered and rejected — the explicit `send --image` invocation is clear enough for a one-time Greenshot config.
 
-- [ ] Greenshot External Command Plugin calls an executable with the saved screenshot path as an argument.
-  - Verify the exact argument format Greenshot passes (typically: `fling.exe <path-to-temp-png>`).
-- [ ] Ensure `fling send --image <path>` (Phase 5) covers this use case.
-- [ ] If Greenshot passes the path as a bare positional argument (not `--image`), add support for: `fling send <path>` as shorthand when the argument is a file path.
-- [ ] Ensure the CLI exits with code 0 on success and non-zero on failure (Greenshot may report errors based on exit code).
-- [ ] Test the end-to-end flow: screenshot on PC → Greenshot saves → invokes Fling → notification on phone.
+### Greenshot Configuration
 
-### Unit Tests
-
-- [ ] Bare positional argument detection: file path resolves to `--image` mode.
-- [ ] Non-existent file path → clear error and non-zero exit code.
+External Command Plugin → add a new command:
+- **Command:** `C:\path\to\fling.exe`
+- **Arguments:** `send --image "{0}" --all` (or `--device "Phone Name"`)
 
 ### Verification
 
-1. Configure Greenshot: External Command → `fling.exe`, argument `{0}`.
+End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), when a stable `fling.exe` path is available.
+
+1. Configure Greenshot as above.
 2. Take a screenshot → select "Fling" destination → notification appears on phone with the image.
 3. Tap notification → paste screenshot into a messaging app.
 
