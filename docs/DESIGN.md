@@ -29,7 +29,7 @@ This is strictly a clipboard tool — not a file-sharing app. Content is transie
 - .NET 8, C#, single-file self-contained executable.
 - Primary interface: command-line (`fling send --clipboard`, `fling send --image <path>`).
 - Integrates with Greenshot via External Command Plugin.
-- Supports multiple paired devices with a default target.
+- Supports multiple paired devices (explicit `--device` or `--all` targeting, no default).
 - Configuration: `%APPDATA%\Fling\config.json`.
 - Future: optional tray app wrapping the same logic with clipboard watching.
 
