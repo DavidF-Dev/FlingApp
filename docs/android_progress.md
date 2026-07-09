@@ -396,7 +396,7 @@ Changes made after all 10 phases were complete.
 
 ---
 
-## Phase 11: UDP Discovery Listener
+## Phase 11: UDP Discovery Listener ✓
 
 **Goal:** The Android app responds to UDP broadcast discovery requests from the CLI, enabling auto-discovery on the local network.
 
@@ -409,29 +409,30 @@ Changes made after all 10 phases were complete.
 > - **MulticastLock:** Required to receive UDP broadcasts on Android. Acquired only while the listener is active. Uses `WifiManager.createMulticastLock()`. Requires `CHANGE_WIFI_MULTICAST_STATE` permission (normal, no runtime prompt).
 > - **WiFi-only gate:** Only listen when connected to Wi-Fi. Use the existing `ConnectivityObserver` from Phase 10. Acquire the `MulticastLock` and open the UDP socket when Wi-Fi connects; release and close when Wi-Fi disconnects. This avoids holding the lock on mobile data where broadcast discovery can't work anyway.
 > - **Lifecycle:** The UDP listener starts and stops with `FlingService`. It is a lightweight addition to the existing foreground service — not a separate service.
+> - **Device name:** Read fresh from `SettingsRepository` on each discovery request (not cached at listener start), so name changes take effect without a service restart.
 
 ### Tasks
 
-- [ ] Add `CHANGE_WIFI_MULTICAST_STATE` permission to the manifest.
-- [ ] Create `DiscoveryListener`:
+- [x] Add `CHANGE_WIFI_MULTICAST_STATE` permission to the manifest.
+- [x] Create `DiscoveryListener`:
   - Opens a `DatagramSocket` on UDP port 7290.
   - Listens for incoming `FLING?` packets.
   - Responds to the sender's address with `FLING:<port>:<device_name>` (port from settings, device name from settings).
   - Runs on a background coroutine tied to the service lifecycle.
-- [ ] Integrate `MulticastLock` management:
+- [x] Integrate `MulticastLock` management:
   - Acquire `WifiManager.MulticastLock` when the listener starts.
   - Release when the listener stops.
-- [ ] Wire WiFi-only gate using the existing `ConnectivityObserver`:
+- [x] Wire WiFi-only gate using the existing `ConnectivityObserver`:
   - Start the `DiscoveryListener` (and acquire lock) when Wi-Fi is connected.
   - Stop the listener (and release lock) when Wi-Fi disconnects.
   - On service start, check current Wi-Fi state to decide initial listener state.
-- [ ] Start/stop `DiscoveryListener` with `FlingService` lifecycle.
+- [x] Start/stop `DiscoveryListener` with `FlingService` lifecycle.
 
 ### Unit Tests
 
-- [ ] `DiscoveryListener` responds with correct `FLING:<port>:<name>` format.
-- [ ] `DiscoveryListener` ignores non-`FLING?` packets.
-- [ ] Response includes the configured port and device name (not hardcoded values).
+- [x] `DiscoveryListener` responds with correct `FLING:<port>:<name>` format.
+- [x] `DiscoveryListener` ignores non-`FLING?` packets.
+- [x] Response includes the configured port and device name (not hardcoded values).
 
 ### Verification
 
