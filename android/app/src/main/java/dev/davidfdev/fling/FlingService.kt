@@ -56,10 +56,9 @@ class FlingService : Service() {
             try {
                 val settings = app.settingsRepository.get()
                 val port = settings.port
-                val deviceName = settings.deviceName.ifBlank { Build.MODEL }
                 server = embeddedServer(Netty, port = port, host = "0.0.0.0") {
                     configureFling(
-                        deviceName,
+                        { app.settingsRepository.get().deviceName.ifBlank { Build.MODEL } },
                         app.deviceRepository,
                         approver,
                         app.clipboardBuffer,

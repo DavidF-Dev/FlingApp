@@ -49,7 +49,7 @@ data class StatusResponse(val status: String, val name: String? = null)
 data class ErrorResponse(val error: String)
 
 fun Application.configureFling(
-    deviceName: String,
+    deviceNameProvider: suspend () -> String,
     deviceRepository: DeviceRepository,
     pairingApprover: PairingApprover,
     clipboardBuffer: ClipboardBuffer,
@@ -78,7 +78,7 @@ fun Application.configureFling(
 
             val existing = deviceRepository.findByKey(request.key)
             if (existing != null) {
-                call.respond(PairResponse(status = "accepted", name = deviceName))
+                call.respond(PairResponse(status = "accepted", name = deviceNameProvider()))
                 return@post
             }
 
@@ -96,7 +96,7 @@ fun Application.configureFling(
                         pairedAt = System.currentTimeMillis(),
                     )
                     deviceRepository.store(device)
-                    call.respond(PairResponse(status = "accepted", name = deviceName))
+                    call.respond(PairResponse(status = "accepted", name = deviceNameProvider()))
                 } else {
                     call.respond(PairResponse(status = "rejected"))
                 }
@@ -108,7 +108,7 @@ fun Application.configureFling(
         authenticated(deviceRepository) {
             rateLimited(rateLimiter ?: RateLimiter()) {
                 get("/ping") {
-                    call.respond(PingResponse(status = "ok", name = deviceName, version = "1.0.0"))
+                    call.respond(PingResponse(status = "ok", name = deviceNameProvider(), version = "1.0.0"))
                 }
 
                 post("/clip") {
@@ -161,7 +161,7 @@ fun Application.configureFling(
                     clipboardBuffer.add(item)
                     contentNotifier?.notify(item)
 
-                    call.respond(StatusResponse(status = "ok", name = deviceName))
+                    call.respond(StatusResponse(status = "ok", name = deviceNameProvider()))
                 }
             }
         }

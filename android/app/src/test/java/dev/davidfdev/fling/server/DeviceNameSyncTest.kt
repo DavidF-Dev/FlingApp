@@ -34,7 +34,7 @@ class DeviceNameSyncTest {
     fun nameHeaderUpdatesStoredName() {
         val repo = pairedRepo("Old PC")
         testApplication {
-            application { configureFling("Phone", repo, autoAcceptApprover, ClipboardBuffer()) }
+            application { configureFling({ "Phone" }, repo, autoAcceptApprover, ClipboardBuffer()) }
 
             val response = client.get("/ping") {
                 header("X-Fling-Key", "valid-key")
@@ -50,7 +50,7 @@ class DeviceNameSyncTest {
     fun missingNameHeaderLeavesNameUnchanged() {
         val repo = pairedRepo("Old PC")
         testApplication {
-            application { configureFling("Phone", repo, autoAcceptApprover, ClipboardBuffer()) }
+            application { configureFling({ "Phone" }, repo, autoAcceptApprover, ClipboardBuffer()) }
 
             val response = client.get("/ping") {
                 header("X-Fling-Key", "valid-key")
@@ -65,7 +65,7 @@ class DeviceNameSyncTest {
     fun sameNameDoesNotTriggerWrite() {
         val repo = pairedRepo("Same PC")
         testApplication {
-            application { configureFling("Phone", repo, autoAcceptApprover, ClipboardBuffer()) }
+            application { configureFling({ "Phone" }, repo, autoAcceptApprover, ClipboardBuffer()) }
 
             val response = client.get("/ping") {
                 header("X-Fling-Key", "valid-key")

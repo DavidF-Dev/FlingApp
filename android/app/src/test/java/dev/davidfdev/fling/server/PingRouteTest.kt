@@ -34,7 +34,7 @@ class PingRouteTest {
 
     @Test
     fun pingWithValidKeyReturns200() = testApplication {
-        application { configureFling("Test Device", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Test Device" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.get("/ping") { header("X-Fling-Key", "valid-key") }
         assertEquals(HttpStatusCode.OK, response.status)
@@ -47,7 +47,7 @@ class PingRouteTest {
 
     @Test
     fun unknownRouteReturns404() = testApplication {
-        application { configureFling("Test Device", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Test Device" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.get("/nonexistent") { header("X-Fling-Key", "valid-key") }
         assertEquals(HttpStatusCode.NotFound, response.status)

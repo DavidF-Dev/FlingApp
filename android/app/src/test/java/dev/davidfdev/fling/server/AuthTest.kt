@@ -38,7 +38,7 @@ class AuthTest {
 
     @Test
     fun pingWithoutHeaderReturns401() = testApplication {
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.get("/ping")
         assertEquals(HttpStatusCode.Unauthorized, response.status)
@@ -49,7 +49,7 @@ class AuthTest {
 
     @Test
     fun pingWithUnknownKeyReturns401() = testApplication {
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.get("/ping") { header("X-Fling-Key", "wrong-key") }
         assertEquals(HttpStatusCode.Unauthorized, response.status)
@@ -60,7 +60,7 @@ class AuthTest {
 
     @Test
     fun pingWithValidKeyReturns200() = testApplication {
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.get("/ping") { header("X-Fling-Key", "valid-key") }
         assertEquals(HttpStatusCode.OK, response.status)
@@ -68,7 +68,7 @@ class AuthTest {
 
     @Test
     fun pairNotAffectedByAuth() = testApplication {
-        application { configureFling("Phone", testDeviceRepository(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, testDeviceRepository(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/pair") {
             contentType(ContentType.Application.Json)

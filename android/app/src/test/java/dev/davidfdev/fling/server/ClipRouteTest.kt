@@ -49,7 +49,7 @@ class ClipRouteTest {
     @Test
     fun clipWithValidTextReturns200() = testApplication {
         val buffer = ClipboardBuffer()
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, buffer) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, buffer) }
 
         val encoded = base64("Hello World".toByteArray())
         val response = client.post("/clip") {
@@ -72,7 +72,7 @@ class ClipRouteTest {
     @Test
     fun clipWithValidImageReturns200() = testApplication {
         val buffer = ClipboardBuffer()
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, buffer) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, buffer) }
 
         val fakeImage = ByteArray(100) { it.toByte() }
         val encoded = base64(fakeImage)
@@ -87,7 +87,7 @@ class ClipRouteTest {
 
     @Test
     fun clipWithUnsupportedTypeReturns400() = testApplication {
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/clip") {
             header("X-Fling-Key", "valid-key")
@@ -99,7 +99,7 @@ class ClipRouteTest {
 
     @Test
     fun clipWithMalformedJsonReturns400() = testApplication {
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/clip") {
             header("X-Fling-Key", "valid-key")
@@ -111,7 +111,7 @@ class ClipRouteTest {
 
     @Test
     fun clipWithMissingFieldsReturns400() = testApplication {
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val response = client.post("/clip") {
             header("X-Fling-Key", "valid-key")
@@ -123,7 +123,7 @@ class ClipRouteTest {
 
     @Test
     fun clipWithOversizedPayloadReturns413() = testApplication {
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer()) }
 
         val bigData = ByteArray(11 * 1024 * 1024)
         val encoded = base64(bigData)
@@ -138,7 +138,7 @@ class ClipRouteTest {
     @Test
     fun clipWithGzipCompression() = testApplication {
         val buffer = ClipboardBuffer()
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, buffer) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, buffer) }
 
         val original = "Hello Compressed World"
         val compressed = gzip(original.toByteArray())

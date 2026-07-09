@@ -38,7 +38,7 @@ class RateLimitRouteTest {
     @Test
     fun requestsWithinLimitSucceed() = testApplication {
         val limiter = RateLimiter(maxRequests = 3, windowMs = 60_000)
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
 
         repeat(3) {
             val response = client.get("/ping") { header("X-Fling-Key", "valid-key") }
@@ -49,7 +49,7 @@ class RateLimitRouteTest {
     @Test
     fun requestsBeyondLimitReturn429() = testApplication {
         val limiter = RateLimiter(maxRequests = 2, windowMs = 60_000)
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
 
         repeat(2) {
             client.get("/ping") { header("X-Fling-Key", "valid-key") }
@@ -62,7 +62,7 @@ class RateLimitRouteTest {
     @Test
     fun perKeyIsolation() = testApplication {
         val limiter = RateLimiter(maxRequests = 2, windowMs = 60_000)
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
 
         repeat(2) {
             client.get("/ping") { header("X-Fling-Key", "valid-key") }
@@ -77,7 +77,7 @@ class RateLimitRouteTest {
     @Test
     fun pairNotRateLimited() = testApplication {
         val limiter = RateLimiter(maxRequests = 1, windowMs = 60_000)
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
 
         // Pair requests should not be affected by rate limiting
         repeat(3) {
@@ -93,7 +93,7 @@ class RateLimitRouteTest {
     fun resetsAfterWindowExpires() = testApplication {
         var now = 1000L
         val limiter = RateLimiter(maxRequests = 2, windowMs = 60_000, clock = { now })
-        application { configureFling("Phone", pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
+        application { configureFling({ "Phone" }, pairedRepo(), autoAcceptApprover, ClipboardBuffer(), rateLimiter = limiter) }
 
         repeat(2) {
             client.get("/ping") { header("X-Fling-Key", "valid-key") }
