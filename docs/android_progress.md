@@ -364,6 +364,53 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
+## Phase 11: UDP Discovery Listener
+
+**Goal:** The Android app responds to UDP broadcast discovery requests from the CLI, enabling auto-discovery on the local network.
+
+**Context:** The CLI stores a fixed IP per paired device. When the phone's IP changes (e.g., switching networks), the user must re-pair manually. This phase adds a UDP listener so the CLI can find the phone automatically. See `cli_progress.md` Phase 11 for the CLI side.
+
+> **Decisions:**
+>
+> - **Mechanism: UDP broadcast.** Zero dependencies. The CLI broadcasts `FLING?` to `255.255.255.255:7290`; the phone responds with `FLING:<port>:<device_name>` via unicast.
+> - **Discovery port:** UDP 7290 (one below the HTTP port 7291).
+> - **MulticastLock:** Required to receive UDP broadcasts on Android. Acquired only while the listener is active. Uses `WifiManager.createMulticastLock()`. Requires `CHANGE_WIFI_MULTICAST_STATE` permission (normal, no runtime prompt).
+> - **WiFi-only gate:** Only listen when connected to Wi-Fi. Register a `ConnectivityManager` `NetworkCallback` (already exists as `ConnectivityObserver` from Phase 10). Acquire the `MulticastLock` and open the UDP socket when Wi-Fi connects; release and close when Wi-Fi disconnects. This avoids holding the lock on mobile data where broadcast discovery can't work anyway.
+> - **Lifecycle:** The UDP listener starts and stops with `FlingService`. It is a lightweight addition to the existing foreground service — not a separate service.
+
+### Tasks
+
+- [ ] Add `CHANGE_WIFI_MULTICAST_STATE` permission to the manifest.
+- [ ] Create `DiscoveryListener`:
+  - Opens a `DatagramSocket` on UDP port 7290.
+  - Listens for incoming `FLING?` packets.
+  - Responds to the sender's address with `FLING:<port>:<device_name>` (port from settings, device name from settings).
+  - Runs on a background coroutine tied to the service lifecycle.
+- [ ] Integrate `MulticastLock` management:
+  - Acquire `WifiManager.MulticastLock` when the listener starts.
+  - Release when the listener stops.
+- [ ] Wire WiFi-only gate using the existing `ConnectivityObserver`:
+  - Start the `DiscoveryListener` (and acquire lock) when Wi-Fi is connected.
+  - Stop the listener (and release lock) when Wi-Fi disconnects.
+  - On service start, check current Wi-Fi state to decide initial listener state.
+- [ ] Start/stop `DiscoveryListener` with `FlingService` lifecycle.
+
+### Unit Tests
+
+- [ ] `DiscoveryListener` responds with correct `FLING:<port>:<name>` format.
+- [ ] `DiscoveryListener` ignores non-`FLING?` packets.
+- [ ] Response includes the configured port and device name (not hardcoded values).
+
+### Verification
+
+1. Start the Fling app on a phone connected to Wi-Fi.
+2. From the PC on the same network, send a UDP broadcast to port 7290 — receive a response with the phone's port and device name.
+3. Disconnect Wi-Fi on the phone — listener stops (no response to broadcasts).
+4. Reconnect Wi-Fi — listener resumes.
+5. Stop the Fling service — listener stops.
+
+---
+
 ## Appendix: Device Install Script
 
 `android/scripts/install-device.ps1` builds and installs the APK on a USB-connected physical device. Adapted from StelaApp's equivalent script.

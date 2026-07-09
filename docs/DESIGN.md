@@ -255,7 +255,7 @@ Stored at `%APPDATA%\Fling\config.json`:
 
 - **Tray app**: GUI wrapper with clipboard watching (auto-sync mode), connection status, settings.
 - **Two-way sync**: Android sends clipboard back to PC.
-- **Auto-discovery**: mDNS/Bonjour for finding devices without manual IP entry.
+- **Auto-discovery**: UDP broadcast for finding devices without manual IP entry. CLI broadcasts `FLING?` to `255.255.255.255:7290`; phone responds with `FLING:<port>:<name>`. Cached with 60s TTL; falls back to stored IP on failure. See Phase 11 in both progress docs.
 - **QR code pairing**: Scan from phone to pair instantly.
 - **HTTPS**: Self-signed certificate exchanged during pairing for encrypted transport.
 - **Configurable file-copy exclusion on Explorer clipboard**: If user copies a file in Explorer, either skip silently or send the filename as text.

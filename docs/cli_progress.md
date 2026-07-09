@@ -317,24 +317,68 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ---
 
-## Phase 11: Auto-Discovery & Self-Healing (Future)
+## Phase 11: Auto-Discovery & Self-Healing
 
 **Goal:** Once paired, the CLI automatically finds the phone on any network without manual IP entry.
 
 **Context:** The current plan stores a fixed IP per device. If the phone's IP changes (e.g., switching between home and office Wi-Fi), the user must re-pair manually. This phase eliminates that friction — as long as the PC and phone are on the same network and were paired in the past, the CLI self-heals without user intervention.
 
-**Approach:**
-- The Android app advertises a service via mDNS (e.g., `_fling._tcp`) including its device name.
-- At send time, `DeviceResolver` attempts mDNS discovery first. If it finds a service whose name matches a paired device, it uses the discovered IP (and updates the stored config). Falls back to the stored IP if discovery fails.
-- No changes to the protocol, config model, or send flow — discovery is purely an address-resolution layer.
+> **Decisions:**
+>
+> - **Mechanism: UDP broadcast** (not mDNS). Zero dependencies on both sides, sub-second discovery, simpler than mDNS/NSD. The Android app must already be in the foreground to receive clipboard content, so Doze/screen-off limitations on broadcast reception are irrelevant.
+> - **Discovery port:** UDP 7290 (one below the HTTP port 7291).
+> - **Protocol:** CLI broadcasts `FLING?` to `255.255.255.255:7290`. Phone responds (unicast) with `FLING:<port>:<device_name>`. CLI matches device name against paired config entries.
+> - **Config update:** When discovery finds a new IP, silently update `config.json`. The stored IP becomes a "last known good" fallback for when discovery fails.
+> - **Caching:** Cache discovered IPs with a 60-second TTL. Within the TTL, skip discovery and use the cached IP. If the cached IP fails (connection refused/timeout), re-discover.
+> - **Discovery timeout:** 1.5 seconds. If no response, fall back to stored IP.
+> - **Scope:** Discovery runs in `fling send`, `fling status`, and `fling pair --discover`.
+> - **Android side:** Tracked as a parallel phase in `android_progress.md` (Phase 11).
 
-**Prerequisite — device name uniqueness:** The device name is the stable identifier that links a discovered service to a config entry. Names must be unique across paired devices. `fling pair` must enforce this (reject duplicate names unless `--force` re-pairing). The API key is already unique (cryptographically random per pairing).
+**Prerequisite — device name uniqueness:** The device name is the stable identifier that links a discovered service to a config entry. Names must be unique across paired devices. `fling pair` already enforces this (reject duplicate names unless `--force` re-pairing).
 
-**Dependencies:**
-- .NET mDNS library (e.g., `Makaretu.Dns.Multicast` or `Zeroconf`).
-- Android NSD (Network Service Discovery) integration in the foreground service.
+### Tasks
 
-**Deferred until after Phase 9.** Nothing in Phases 2–9 needs to change to accommodate this — `DeviceResolver` already abstracts device lookup, and the config model stores name + key alongside host/port.
+- [ ] Create `UdpDiscovery` class:
+  - Broadcasts `FLING?` to `255.255.255.255:7290` via `UdpClient`.
+  - Listens for responses matching `FLING:<port>:<name>` pattern.
+  - Returns a list of `DiscoveredDevice { Name, Host, Port }`.
+  - Timeout: 1.5 seconds. Collects all responses within the window.
+- [ ] Create `DiscoveryCache`:
+  - In-memory cache mapping device name → `(host, port, expiry)`.
+  - TTL: 60 seconds. `TryGet` returns cached entry if not expired.
+  - `Set` updates the cache after a successful discovery.
+- [ ] Integrate into `DeviceResolver`:
+  - Before using the stored IP, check `DiscoveryCache`.
+  - On cache miss, run `UdpDiscovery` and cache results.
+  - If discovery finds a device, use the discovered IP. If the discovered IP differs from the stored IP, update `config.json`.
+  - If discovery fails (timeout, no matching device), fall back to the stored IP.
+- [ ] Add `fling pair --discover`:
+  - Broadcasts and lists discovered devices.
+  - If exactly one device responds, auto-pair with it (still requires phone-side approval).
+  - If multiple respond, list them and prompt the user to specify.
+  - If none respond, print a message suggesting manual IP entry.
+- [ ] Wire discovery into `fling send` and `fling status` via `DeviceResolver`.
+
+### Unit Tests
+
+- [ ] `UdpDiscovery` parses valid `FLING:<port>:<name>` responses correctly.
+- [ ] `UdpDiscovery` ignores malformed responses.
+- [ ] `DiscoveryCache` returns cached entry within TTL.
+- [ ] `DiscoveryCache` returns miss after TTL expiry.
+- [ ] `DeviceResolver` uses cached IP when available.
+- [ ] `DeviceResolver` falls back to stored IP when discovery fails.
+- [ ] `DeviceResolver` updates config when discovered IP differs from stored IP.
+- [ ] `fling pair --discover` with no responses prints a helpful message.
+
+### Verification
+
+1. Start the Android app on a phone on the same Wi-Fi network.
+2. `fling send --clipboard --all` — discovers the phone automatically, sends content.
+3. Change the phone's IP (reconnect to Wi-Fi) — next send discovers the new IP, updates config.
+4. `fling pair --discover` — discovers the phone without manual IP entry.
+5. `fling status` — discovers and reports device status.
+6. With the phone off/unreachable — falls back to stored IP, reports offline.
+7. All unit tests pass.
 
 ---
 
