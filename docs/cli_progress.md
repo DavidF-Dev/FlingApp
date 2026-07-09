@@ -384,6 +384,47 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ---
 
+## Phase 12: Device Name Sync
+
+**Goal:** Device names stay fresh on both sides without re-pairing.
+
+**Context:** Currently, the PC name and phone name are exchanged only at pair time. If either side renames itself, the other side shows the stale name until a re-pair. This phase adds passive name sync that piggybacks on existing traffic — no extra network calls.
+
+> **Decisions:**
+>
+> - **Phone → PC:** The CLI already receives the phone's name in `/ping` responses and UDP discovery responses (`FLING:<port>:<name>`). If the returned name differs from the stored name in config, silently update `config.json`. Discovery happens on every `fling send`; `/ping` happens on `fling status`. Both are natural sync points.
+> - **PC → Phone:** The CLI sends `X-Fling-Name` header alongside `X-Fling-Key` on `/clip` and `/ping` requests. The phone reads it and updates the stored `PairedDevice.name` if it differs. The header is optional — the phone ignores its absence.
+> - **Propagation timing:** Changes propagate on the next natural interaction (send, status, discovery), not immediately.
+> - **Android side:** Tracked as a parallel phase in `android_progress.md` (Phase 12).
+
+### Tasks
+
+- [ ] Add `X-Fling-Name` header to `FlingHttpClient.SendClipAsync` and `PingAsync`:
+  - Read the PC name from config (same fallback: `hostName` > `Environment.MachineName`).
+  - Pass the PC name into `FlingHttpClient` or the calling command so it can set the header.
+- [ ] Update device name from `/ping` response in `StatusCommand`:
+  - After a successful ping, if the response `name` differs from the stored `DeviceConfig.Name`, update config and save.
+- [ ] Update device name from UDP discovery in `DeviceResolver.ResolveAddressesAsync`:
+  - If a discovered device name differs from the stored name (case-sensitive comparison), update config and save.
+  - Note: discovery matches by the *current* stored name (case-insensitive), but a case-sensitive mismatch (e.g., "pixel 8" → "Pixel 8") should still trigger an update.
+
+### Unit Tests
+
+- [ ] `FlingHttpClient` includes `X-Fling-Name` header in `/clip` and `/ping` requests.
+- [ ] `StatusCommand` updates stored device name when `/ping` returns a different name.
+- [ ] `DeviceResolver` updates stored device name when discovery returns a different name.
+- [ ] No config save when names already match.
+
+### Verification
+
+1. Change the phone's device name in the Android app settings.
+2. Run `fling status` — stored device name in `config.json` updates to the new name.
+3. Run `fling send --clipboard --all` — discovery picks up the new name, config updates.
+4. Change `hostName` in CLI config via `fling config set --hostname "New PC"`.
+5. Run `fling send` — phone's paired devices list shows the new PC name.
+
+---
+
 ## Appendix: Testing Strategy
 
 ### Unit Test Setup

@@ -444,6 +444,39 @@ Changes made after all 10 phases were complete.
 
 ---
 
+## Phase 12: Device Name Sync
+
+**Goal:** PC names stay fresh on the phone without re-pairing.
+
+**Context:** Currently, the PC name is exchanged only at pair time. If the user changes `hostName` in the CLI config, the phone shows the stale name. This phase reads an optional `X-Fling-Name` header from incoming requests and updates the stored PC name if it differs. See `cli_progress.md` Phase 12 for the CLI side.
+
+> **Decisions:**
+>
+> - **Mechanism:** The CLI sends `X-Fling-Name` header alongside `X-Fling-Key` on `/clip` and `/ping` requests. The phone reads it and updates `PairedDevice.name` in `DeviceRepository` if it differs.
+> - **Header is optional.** Older CLI versions that don't send it are unaffected — the phone simply keeps the existing name.
+> - **Propagation timing:** Updates happen on the next natural interaction (send or status check), not immediately.
+
+### Tasks
+
+- [ ] Read `X-Fling-Name` header in the authentication plugin (where `X-Fling-Key` is already read):
+  - After successful auth, if `X-Fling-Name` is present and differs from the stored `PairedDevice.name`, update the name via `DeviceRepository`.
+- [ ] Ensure `DeviceRepository` supports updating a device's name (or use store/delete to replace).
+
+### Unit Tests
+
+- [ ] Request with `X-Fling-Name` header updates stored PC name — via `testApplication`.
+- [ ] Request without `X-Fling-Name` header leaves stored name unchanged.
+- [ ] Request with same name as stored does not trigger a write.
+
+### Verification
+
+1. Pair a device with PC name "Old PC".
+2. Change CLI `hostName` to "New PC" and send content.
+3. Open the Fling app — paired devices list shows "New PC".
+4. Send content without `X-Fling-Name` header (e.g., curl) — name remains "New PC".
+
+---
+
 ## Appendix: Device Install Script
 
 `android/scripts/install-device.ps1` builds and installs the APK on a USB-connected physical device. Adapted from StelaApp's equivalent script.
