@@ -99,7 +99,8 @@ Request:
 Response:
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "name": "Pixel 8"
 }
 ```
 
@@ -263,7 +264,7 @@ Stored at `%APPDATA%\Fling\config.json`:
 | Greenshot uses `send --image "{0}"`, no bare positional shorthand | One-time config; adding file-path detection adds complexity for no real UX gain. |
 | Opt-in file logging via `config.log` | Logs each invocation (args, exit code, error message) to `%APPDATA%\Fling\fling.log`. Off by default. Essential for debugging third-party callers (e.g., Greenshot) where stderr is not visible. Auto-trims at 2000 lines. |
 | Two-exe publish: `fling.exe` + `flingw.exe` | A Windows PE exe has exactly one subsystem flag — console or GUI. Console apps flash a window when launched from a GUI caller; GUI apps lose stdout in cmd.exe. The publish script builds once (console), copies, and patches one PE byte to produce the GUI variant. Same pattern as `python.exe` / `pythonw.exe`. |
-| Passive device name sync via `X-Fling-Name` header | Names exchanged at pair time go stale if either side renames. Rather than adding a dedicated sync call, the CLI sends `X-Fling-Name` on existing `/clip` and `/ping` requests; the phone updates the stored PC name if it differs. In the other direction, the CLI updates its stored phone name from `/ping` responses and UDP discovery. Propagates on next natural interaction. |
+| Passive device name sync | Names exchanged at pair time go stale if either side renames. PC → Phone: CLI sends `X-Fling-Name` header on `/clip` and `/ping` requests; phone updates stored PC name if it differs. Phone → PC: `/clip` and `/ping` responses include `"name"` field; CLI updates stored phone name if it differs. Discovery only handles case corrections (a full rename means the old name won't match the discovery response). Propagates on next natural interaction — no dedicated sync call. |
 
 ## Future Considerations
 
