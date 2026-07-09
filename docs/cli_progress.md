@@ -317,7 +317,7 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ---
 
-## Phase 11: Auto-Discovery & Self-Healing
+## Phase 11: Auto-Discovery & Self-Healing ✅
 
 **Goal:** Once paired, the CLI automatically finds the phone on any network without manual IP entry.
 
@@ -374,14 +374,12 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ### Verification
 
-Integration testing requires Android Phase 11 (UDP discovery listener). Deferred until that phase is complete.
-
-1. Start the Android app on a phone on the same Wi-Fi network.
-2. `fling send --clipboard --all` — discovers the phone automatically, sends content.
-3. Change the phone's IP (reconnect to Wi-Fi) — next send discovers the new IP, updates config.
-4. `fling pair --discover` — discovers the phone without manual IP entry.
-5. `fling status` — discovers and reports device status.
-6. With the phone off/unreachable — falls back to stored IP, reports offline.
+1. ~~Start the Android app on a phone on the same Wi-Fi network.~~
+2. ~~`fling send --clipboard --all` — discovers the phone automatically, sends content.~~
+3. ~~Change the phone's IP (edit config to nonsense value) — next send discovers the new IP, updates config.~~
+4. ~~`fling pair --discover` — discovers the phone without manual IP entry.~~
+5. ~~`fling status` — discovers and reports device status.~~
+6. ~~With the phone off/unreachable — falls back to stored IP, reports offline.~~
 7. ✅ All unit tests pass (104/104).
 
 ---
