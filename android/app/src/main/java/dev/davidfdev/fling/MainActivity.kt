@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -88,6 +89,7 @@ private fun FlingApp(viewModel: MainViewModel = viewModel()) {
     var showSettings by remember { mutableStateOf(false) }
 
     if (showSettings) {
+        BackHandler { showSettings = false }
         SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
     } else {
         MainScreen(viewModel = viewModel, onOpenSettings = { showSettings = true })
