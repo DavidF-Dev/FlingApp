@@ -38,14 +38,6 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
                     copyToClipboard(ctx, type, intent)
                     Toast.makeText(ctx, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                 }
-                ACTION_SHARE -> {
-                    val shareIntent = buildShareIntent(ctx, type, intent)
-                    if (shareIntent != null) {
-                        ctx.startActivity(Intent.createChooser(shareIntent, null).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
-                    }
-                }
             }
         }
     }
@@ -54,7 +46,6 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
         val filter = IntentFilter().apply {
             addAction(ACTION_TAP_COPY)
             addAction(ACTION_COPY)
-            addAction(ACTION_SHARE)
         }
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         createChannel()
@@ -77,7 +68,6 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
 
         val tapIntent = buildBroadcastIntent(ACTION_TAP_COPY, baseExtras, textExtra, uriExtra)
         val copyIntent = buildBroadcastIntent(ACTION_COPY, baseExtras, textExtra, uriExtra)
-        val shareIntent = buildBroadcastIntent(ACTION_SHARE, baseExtras, textExtra, uriExtra)
 
         val tapPending = PendingIntent.getBroadcast(
             context, notificationId * 10, tapIntent,
@@ -87,10 +77,7 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
             context, notificationId * 10 + 1, copyIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val sharePending = PendingIntent.getBroadcast(
-            context, notificationId * 10 + 2, shareIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val sharePending = buildSharePendingIntent(notificationId, item, uriExtra)
 
         when {
             item.type.startsWith("text/") -> {
@@ -140,26 +127,30 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
         }
     }
 
-    private fun buildShareIntent(ctx: Context, type: String, intent: Intent): Intent? {
-        return when {
-            type.startsWith("text/") -> {
-                val text = intent.getStringExtra(EXTRA_TEXT) ?: return null
-                Intent(Intent.ACTION_SEND).apply {
-                    this.type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, text)
-                }
+    private fun buildSharePendingIntent(
+        notificationId: Int,
+        item: ClipItem,
+        uriExtra: String?,
+    ): PendingIntent {
+        val shareIntent = when {
+            item.type.startsWith("text/") -> Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, String(item.data))
             }
-            type == "image/png" -> {
-                val uriString = intent.getStringExtra(EXTRA_URI) ?: return null
-                val uri = android.net.Uri.parse(uriString)
-                Intent(Intent.ACTION_SEND).apply {
-                    this.type = "image/png"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
+            item.type == "image/png" -> Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse(uriExtra))
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            else -> null
+            else -> Intent()
         }
+        val chooser = Intent.createChooser(shareIntent, null).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return PendingIntent.getActivity(
+            context, notificationId * 10 + 2, chooser,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun showTextNotification(
@@ -233,7 +224,6 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
         private const val TIMEOUT_MS = 5L * 60 * 1000
         private const val ACTION_TAP_COPY = "dev.davidfdev.fling.TAP_COPY_CLIP"
         private const val ACTION_COPY = "dev.davidfdev.fling.COPY_CLIP"
-        private const val ACTION_SHARE = "dev.davidfdev.fling.SHARE_CLIP"
         private const val EXTRA_NOTIFICATION_ID = "notification_id"
         private const val EXTRA_TYPE = "clip_type"
         private const val EXTRA_TEXT = "clip_text"
