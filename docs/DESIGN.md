@@ -249,6 +249,7 @@ Stored at `%APPDATA%\Fling\config.json`:
 | `fling send` requires explicit content source (`--clipboard`, `--image`, `--text`) | No implicit default — prevents accidentally sending stale clipboard content. Error message lists available options. |
 | Greenshot uses `send --image "{0}"`, no bare positional shorthand | One-time config; adding file-path detection adds complexity for no real UX gain. |
 | Opt-in file logging via `config.log` | Logs each invocation (args, exit code, error message) to `%APPDATA%\Fling\fling.log`. Off by default. Essential for debugging third-party callers (e.g., Greenshot) where stderr is not visible. Auto-trims at 2000 lines. |
+| Two-exe publish: `fling.exe` + `flingw.exe` | A Windows PE exe has exactly one subsystem flag — console or GUI. Console apps flash a window when launched from a GUI caller; GUI apps lose stdout in cmd.exe. The publish script builds once (console), copies, and patches one PE byte to produce the GUI variant. Same pattern as `python.exe` / `pythonw.exe`. |
 
 ## Future Considerations
 

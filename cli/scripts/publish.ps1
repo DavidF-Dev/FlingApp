@@ -65,6 +65,19 @@ New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 $stableExe = Join-Path $publishDir 'fling.exe'
 if ($built -ne $stableExe) { Move-Item $built $stableExe -Force }
 
+# Create flingw.exe — identical binary with the PE subsystem set to GUI (2) instead
+# of console (3). This suppresses the console window flash when launched from a GUI
+# caller (Greenshot, tray app). The subsystem field is a 16-bit value at PE header
+# offset 0x5C.
+$guiExe = Join-Path $publishDir 'flingw.exe'
+Copy-Item $stableExe $guiExe -Force
+$bytes = [System.IO.File]::ReadAllBytes($guiExe)
+$peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+$subsystemOffset = $peOffset + 0x5C
+if ($bytes[$subsystemOffset] -ne 3) { Fail 'unexpected PE subsystem value — expected 3 (console)' }
+$bytes[$subsystemOffset] = 2  # IMAGE_SUBSYSTEM_WINDOWS_GUI
+[System.IO.File]::WriteAllBytes($guiExe, $bytes)
+
 # Bundle supporting files (LICENSE renamed to .txt for Windows double-click).
 $license = Join-Path $repoRoot '..\LICENSE'
 if (-not (Test-Path $license)) { Fail 'LICENSE not found at repo root' }
@@ -76,13 +89,15 @@ $zipPath = Join-Path $distDir $zipName
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 $zipItems = @(
     (Join-Path $publishDir 'fling.exe'),
+    (Join-Path $publishDir 'flingw.exe'),
     (Join-Path $publishDir 'LICENSE.txt'),
     (Join-Path $publishDir 'README.txt')
 )
 Compress-Archive -Path $zipItems -DestinationPath $zipPath
 
-# Also copy the bare exe to dist for local use.
+# Also copy the bare exes to dist for local use.
 Copy-Item $stableExe (Join-Path $distDir 'fling.exe') -Force
+Copy-Item $guiExe (Join-Path $distDir 'flingw.exe') -Force
 
 $sha    = (Get-FileHash $zipPath -Algorithm SHA256).Hash
 $sizeMb = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
@@ -90,6 +105,6 @@ $exeMb  = [math]::Round((Get-Item $stableExe).Length / 1MB, 1)
 
 Write-Host ''
 Write-Host "Built: $zipPath" -ForegroundColor Green
-Write-Host "  exe size : $exeMb MB"
+Write-Host "  exe size : $exeMb MB (x2: fling.exe + flingw.exe)"
 Write-Host "  zip size : $sizeMb MB"
 Write-Host "  SHA-256  : $sha"

@@ -23,8 +23,15 @@ dotnet test Fling.slnx               # unit tests (xUnit)
 .\scripts\publish.ps1 -SkipTests     # skip the test gate
 ```
 
-Produces `dist/fling-<version>-win-x64.zip` containing a self-contained `fling.exe`
-(no .NET runtime needed). See [CHANGELOG.md](CHANGELOG.md) for what's in each release.
+Produces `dist/fling-<version>-win-x64.zip` containing two self-contained executables
+(no .NET runtime needed):
+
+- **`fling.exe`** — console app for terminal use.
+- **`flingw.exe`** — GUI-subsystem variant (no console window). Use this when invoking
+  from a GUI caller like Greenshot or a tray app.
+
+Both are identical except for the PE subsystem header.
+See [CHANGELOG.md](CHANGELOG.md) for what's in each release.
 
 ## Usage
 
@@ -42,8 +49,10 @@ fling --help                    # full help for any command
 
 Configure Greenshot's External Command Plugin:
 
-- **Command:** `C:\path\to\fling.exe`
+- **Command:** `C:\path\to\flingw.exe`
 - **Arguments:** `send --image "{0}" --all`
+
+Use `flingw.exe` (not `fling.exe`) to avoid a console window flash on each capture.
 
 ### Logging
 

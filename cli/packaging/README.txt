@@ -22,6 +22,12 @@ Getting started
 
 Run "fling --help" for the full list of commands and options.
 
+This archive includes two executables:
+
+     fling.exe    Console app â€” use from a terminal.
+     flingw.exe   GUI-subsystem variant â€” use when invoked by a GUI app
+                  (e.g., Greenshot, tray app) to avoid a console window flash.
+
 Troubleshooting
 ---------------
 Enable file logging to diagnose issues (e.g., when invoked by Greenshot):
