@@ -24,6 +24,9 @@ Lightweight Android app that receives clipboard content from a paired PC over th
 - Rate limiting: 10 requests per minute per API key (sliding window).
 - Boot auto-start via `BOOT_COMPLETED` receiver if service was previously enabled.
 - Wi-Fi awareness: warning in status card when not on Wi-Fi (live updates via `NetworkCallback`).
+- UDP discovery listener on port 7290: responds to `FLING?` broadcasts with `FLING:<port>:<device_name>`. Gated on Wi-Fi via `ConnectivityObserver`; acquires `MulticastLock` only while listening.
+- Device name sync: reads `X-Fling-Name` header from authenticated requests to update stored PC names; includes phone name in `/clip` response for CLI-side sync.
+- Device name is read dynamically per request via a `suspend () -> String` provider — changes in Settings take effect without restarting the service (port still requires restart).
 
 ## Endpoints
 
