@@ -21,6 +21,7 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -31,6 +32,8 @@ class FlingService : Service() {
     private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
     private var pairingApprover: NotificationPairingApprover? = null
     private var contentNotifier: NotificationContentNotifier? = null
+    private var discoveryListener: DiscoveryListener? = null
+    private var wifiGateJob: Job? = null
 
     private val app get() = application as FlingApplication
 
@@ -40,6 +43,7 @@ class FlingService : Service() {
         createNotificationChannel()
         startInForeground(buildNotification())
         startServer()
+        startDiscovery()
         app.setServiceRunning(true)
         return START_STICKY
     }
@@ -73,6 +77,10 @@ class FlingService : Service() {
 
     override fun onDestroy() {
         app.setServiceRunning(false)
+        wifiGateJob?.cancel()
+        wifiGateJob = null
+        discoveryListener?.stop()
+        discoveryListener = null
         server?.stop(1000, 2000)
         server = null
         pairingApprover?.destroy()
@@ -81,6 +89,25 @@ class FlingService : Service() {
         contentNotifier = null
         scope.cancel()
         super.onDestroy()
+    }
+
+    private fun startDiscovery() {
+        val listener = DiscoveryListener(this, app.settingsRepository, scope)
+            .also { discoveryListener = it }
+
+        if (app.connectivityObserver.isWifiConnected.value) {
+            listener.start()
+        }
+
+        wifiGateJob = scope.launch {
+            app.connectivityObserver.isWifiConnected.collect { connected ->
+                if (connected) {
+                    listener.start()
+                } else {
+                    listener.stop()
+                }
+            }
+        }
     }
 
     private fun createNotificationChannel() {
