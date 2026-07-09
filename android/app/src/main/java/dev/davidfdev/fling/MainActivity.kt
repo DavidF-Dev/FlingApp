@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -105,12 +106,19 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
     val devices by viewModel.pairedDevices.collectAsState()
     val clipItems by viewModel.clipboardItems.collectAsState()
     val settings by viewModel.settings.collectAsState()
+    var isTogglePending by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isRunning) {
+        isTogglePending = false
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
             startFlingService(context)
+        } else {
+            isTogglePending = false
         }
     }
 
@@ -137,9 +145,11 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
                 ServiceStatusCard(
                     isRunning = isRunning,
                     isWifiConnected = isWifiConnected,
+                    isTogglePending = isTogglePending,
                     port = settings.port,
                     deviceName = settings.deviceName,
                     onToggle = { enabled ->
+                        isTogglePending = true
                         if (enabled) {
                             if (needsNotificationPermission(context)) {
                                 permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -214,6 +224,7 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
 private fun ServiceStatusCard(
     isRunning: Boolean,
     isWifiConnected: Boolean,
+    isTogglePending: Boolean,
     port: Int,
     deviceName: String,
     onToggle: (Boolean) -> Unit,
@@ -250,7 +261,11 @@ private fun ServiceStatusCard(
                         )
                     }
                 }
-                Switch(checked = isRunning, onCheckedChange = onToggle)
+                Switch(
+                    checked = isRunning,
+                    onCheckedChange = onToggle,
+                    enabled = !isTogglePending,
+                )
             }
             if (isRunning && !isWifiConnected) {
                 Spacer(modifier = Modifier.height(8.dp))
