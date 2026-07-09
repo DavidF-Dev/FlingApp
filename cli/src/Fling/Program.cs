@@ -2,15 +2,18 @@ using System.CommandLine;
 using Fling.Commands;
 using Fling.Config;
 using Fling.Content;
+using Fling.Net;
 
 var store = new ConfigStore();
 var clipboardReader = new WindowsClipboardReader();
+var discoveryCache = new DiscoveryCache();
+var udpDiscovery = new UdpDiscovery();
 
 var rootCommand = new RootCommand("Fling — send clipboard content from PC to phone");
 rootCommand.Subcommands.Add(ConfigCommand.Create(store));
 rootCommand.Subcommands.Add(PairCommand.Create(store));
-rootCommand.Subcommands.Add(SendCommand.Create(store, clipboardReader));
-rootCommand.Subcommands.Add(StatusCommand.Create(store));
+rootCommand.Subcommands.Add(SendCommand.Create(store, clipboardReader, discoveryCache, udpDiscovery));
+rootCommand.Subcommands.Add(StatusCommand.Create(store, discoveryCache, udpDiscovery));
 
 FlingLog? log = null;
 try

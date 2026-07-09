@@ -8,9 +8,10 @@ public static class PairCommand
 {
     public static Command Create(ConfigStore store)
     {
-        var endpointArg = new Argument<string>("endpoint")
+        var endpointArg = new Argument<string?>("endpoint")
         {
             Description = "Device address as ip:port (port defaults to 7291)",
+            Arity = ArgumentArity.ZeroOrOne,
         };
 
         var nameOption = new Option<string?>("--name")
@@ -23,27 +24,71 @@ public static class PairCommand
             Description = "Re-pair even if a device with the same name or address exists",
         };
 
+        var discoverOption = new Option<bool>("--discover")
+        {
+            Description = "Find devices on the local network via UDP broadcast",
+        };
+
         var command = new Command("pair", "Pair with a new Android device");
         command.Arguments.Add(endpointArg);
         command.Options.Add(nameOption);
         command.Options.Add(forceOption);
+        command.Options.Add(discoverOption);
 
         command.SetAction((Func<ParseResult, CancellationToken, Task<int>>)(async (parseResult, ct) =>
         {
-            var endpoint = parseResult.GetValue(endpointArg)!;
+            var endpoint = parseResult.GetValue(endpointArg);
             var nameOverride = parseResult.GetValue(nameOption);
             var force = parseResult.GetValue(forceOption);
+            var discover = parseResult.GetValue(discoverOption);
+
+            if (endpoint is null && !discover)
+            {
+                Console.Error.WriteLine("Specify a device address or use --discover to find devices on the network.");
+                return 1;
+            }
 
             string host;
             int port;
-            try
+
+            if (discover)
             {
-                (host, port) = EndpointParser.Parse(endpoint);
+                var discovery = new UdpDiscovery();
+                Console.WriteLine("Searching for devices on the local network...");
+                var found = await discovery.DiscoverAsync(ct);
+
+                if (found.Count == 0)
+                {
+                    Console.Error.WriteLine("No devices found. Make sure the Fling app is running on your phone and both devices are on the same Wi-Fi network.");
+                    return 2;
+                }
+
+                if (found.Count == 1)
+                {
+                    host = found[0].Host;
+                    port = found[0].Port;
+                    Console.WriteLine($"Found '{found[0].Name}' at {host}:{port}.");
+                }
+                else
+                {
+                    Console.WriteLine("Multiple devices found:");
+                    foreach (var d in found)
+                        Console.WriteLine($"  {d.Name}  ({d.Host}:{d.Port})");
+                    Console.Error.WriteLine("Specify a device address: fling pair <ip:port>");
+                    return 1;
+                }
             }
-            catch (FormatException ex)
+            else
             {
-                Console.Error.WriteLine(ex.Message);
-                return 1;
+                try
+                {
+                    (host, port) = EndpointParser.Parse(endpoint!);
+                }
+                catch (FormatException ex)
+                {
+                    Console.Error.WriteLine(ex.Message);
+                    return 1;
+                }
             }
 
             var config = store.Load();

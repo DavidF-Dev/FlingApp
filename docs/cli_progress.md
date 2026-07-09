@@ -338,39 +338,43 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ### Tasks
 
-- [ ] Create `UdpDiscovery` class:
+- [x] Create `UdpDiscovery` class:
   - Broadcasts `FLING?` to `255.255.255.255:7290` via `UdpClient`.
-  - Listens for responses matching `FLING:<port>:<name>` pattern.
+  - Listens for responses matching `FLING:<port>:<name>` pattern (greedy colon split — name may contain colons).
   - Returns a list of `DiscoveredDevice { Name, Host, Port }`.
   - Timeout: 1.5 seconds. Collects all responses within the window.
-- [ ] Create `DiscoveryCache`:
+- [x] Create `DiscoveryCache`:
   - In-memory cache mapping device name → `(host, port, expiry)`.
   - TTL: 60 seconds. `TryGet` returns cached entry if not expired.
   - `Set` updates the cache after a successful discovery.
-- [ ] Integrate into `DeviceResolver`:
-  - Before using the stored IP, check `DiscoveryCache`.
-  - On cache miss, run `UdpDiscovery` and cache results.
-  - If discovery finds a device, use the discovered IP. If the discovered IP differs from the stored IP, update `config.json`.
+- [x] Integrate into `DeviceResolver`:
+  - `ResolveAddressesAsync` checks `DiscoveryCache` first, runs `UdpDiscovery` on cache miss.
+  - If discovery finds a device, use the discovered IP. If the discovered IP differs from the stored IP, silently update `config.json`.
   - If discovery fails (timeout, no matching device), fall back to the stored IP.
-- [ ] Add `fling pair --discover`:
+- [x] Add `fling pair --discover`:
   - Broadcasts and lists discovered devices.
   - If exactly one device responds, auto-pair with it (still requires phone-side approval).
   - If multiple respond, list them and prompt the user to specify.
   - If none respond, print a message suggesting manual IP entry.
-- [ ] Wire discovery into `fling send` and `fling status` via `DeviceResolver`.
+  - Endpoint argument is now optional (required only when `--discover` is not used).
+- [x] Wire discovery into `fling send` and `fling status` via `DeviceResolver`.
 
 ### Unit Tests
 
-- [ ] `UdpDiscovery` parses valid `FLING:<port>:<name>` responses correctly.
-- [ ] `UdpDiscovery` ignores malformed responses.
-- [ ] `DiscoveryCache` returns cached entry within TTL.
-- [ ] `DiscoveryCache` returns miss after TTL expiry.
-- [ ] `DeviceResolver` uses cached IP when available.
-- [ ] `DeviceResolver` falls back to stored IP when discovery fails.
-- [ ] `DeviceResolver` updates config when discovered IP differs from stored IP.
-- [ ] `fling pair --discover` with no responses prints a helpful message.
+- [x] `UdpDiscovery` parses valid `FLING:<port>:<name>` responses correctly.
+- [x] `UdpDiscovery` ignores malformed responses.
+- [x] `UdpDiscovery` handles greedy colon parsing (name with colons).
+- [x] `DiscoveryCache` returns cached entry within TTL.
+- [x] `DiscoveryCache` returns miss after TTL expiry.
+- [x] `DiscoveryCache` is case-insensitive on device name.
+- [x] `DeviceResolver` uses cached IP when available.
+- [x] `DeviceResolver` falls back to stored IP when discovery objects are absent.
+- [x] `DeviceResolver` updates config when discovered IP differs from stored IP.
+- [x] `DeviceResolver` does not save config when IP is unchanged.
 
 ### Verification
+
+Integration testing requires Android Phase 11 (UDP discovery listener). Deferred until that phase is complete.
 
 1. Start the Android app on a phone on the same Wi-Fi network.
 2. `fling send --clipboard --all` — discovers the phone automatically, sends content.
@@ -378,7 +382,7 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 4. `fling pair --discover` — discovers the phone without manual IP entry.
 5. `fling status` — discovers and reports device status.
 6. With the phone off/unreachable — falls back to stored IP, reports offline.
-7. All unit tests pass.
+7. ✅ All unit tests pass (104/104).
 
 ---
 

@@ -142,10 +142,23 @@ The Android side reverses the process: base64-decode, then gunzip if `compressed
 
 Enforced on the Android side. Default: 10 requests per minute. Configurable. Returns `429` when exceeded.
 
+### Discovery (UDP Broadcast)
+
+Auto-discovery runs over UDP, separate from the HTTP protocol.
+
+- **Discovery port:** 7290 (one below the HTTP port).
+- **Request:** CLI broadcasts `FLING?` (UTF-8) to `255.255.255.255:7290`.
+- **Response:** Phone responds via unicast with `FLING:<port>:<device_name>` (UTF-8).
+  - `<port>` is the HTTP server port (e.g., `7291`).
+  - `<device_name>` is the phone's configured name. May contain colons — the CLI parses greedily (splits on the first two colons only).
+- **Timeout:** CLI waits 1.5 seconds, collecting all responses. Falls back to the stored IP if no matching device responds.
+- **Caching:** Discovered addresses are cached in memory with a 60-second TTL. Subsequent commands within the TTL skip the broadcast.
+- **Config update:** When a discovered IP differs from the stored IP, the CLI silently updates `config.json`. The stored IP serves as a "last known good" fallback.
+
 ## Pairing Flow
 
-1. User installs Fling on phone, opens app, notes the displayed IP and port.
-2. On PC, user runs: `fling pair 192.168.1.50:7291`
+1. User installs Fling on phone, opens app, notes the displayed IP and port (or uses `fling pair --discover`).
+2. On PC, user runs: `fling pair 192.168.1.50:7291` (or `fling pair --discover`)
 3. CLI generates a random API key and sends `POST /pair`.
 4. Phone shows a notification: "PC 'My PC' wants to connect" with Accept/Reject actions.
 5. User taps Accept.

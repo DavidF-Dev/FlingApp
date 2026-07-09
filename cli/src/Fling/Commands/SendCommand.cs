@@ -8,7 +8,7 @@ namespace Fling.Commands;
 
 public static class SendCommand
 {
-    public static Command Create(ConfigStore store, IClipboardReader clipboardReader)
+    public static Command Create(ConfigStore store, IClipboardReader clipboardReader, DiscoveryCache? discoveryCache = null, UdpDiscovery? udpDiscovery = null)
     {
         var clipboardOption = new Option<bool>("--clipboard")
         {
@@ -140,9 +140,12 @@ public static class SendCommand
 
             // Resolve devices
             List<DeviceConfig> devices;
+            DeviceResolver resolver;
             try
             {
-                var resolver = new DeviceResolver(config);
+                resolver = discoveryCache is not null && udpDiscovery is not null
+                    ? new DeviceResolver(config, store, discoveryCache, udpDiscovery)
+                    : new DeviceResolver(config);
                 devices = resolver.Resolve(deviceName, all);
             }
             catch (DeviceResolutionException ex)
@@ -150,6 +153,8 @@ public static class SendCommand
                 Console.Error.WriteLine(ex.Message);
                 return 1;
             }
+
+            await resolver.ResolveAddressesAsync(devices, ct);
 
             // Send
             using var client = new FlingHttpClient();
