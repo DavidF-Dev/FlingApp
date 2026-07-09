@@ -456,6 +456,7 @@ Changes made after all 10 phases were complete.
 > - **Phone → PC (via `/clip` response):** Add `"name"` field to the `/clip` response: `{"status":"ok","name":"My Phone"}`. The CLI reads it and updates its stored device name if it differs. This is the primary sync path since `fling send` is the most-used command. Backward-compatible: older CLIs ignore the new field.
 > - **Propagation timing:** Updates happen on the next natural interaction (send or status check), not immediately.
 > - **`DeviceRepository.updateName`:** Dedicated method — only writes if the name actually differs.
+> - **Dynamic device name:** `configureFling` takes a `suspend () -> String` provider instead of a static string. The device name is read from `SettingsRepository` on every request, so name changes in Settings take effect immediately without restarting the service.
 
 ### Tasks
 
