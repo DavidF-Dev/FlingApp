@@ -175,7 +175,14 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
 
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                SectionHeader("Recent Clips")
+                SectionHeader(
+                    title = "Recent Clips",
+                    action = if (clipItems.isNotEmpty()) {
+                        { TextButton(onClick = { viewModel.clearClips() }) { Text("Clear") } }
+                    } else {
+                        null
+                    },
+                )
             }
 
             if (clipItems.isEmpty()) {
@@ -189,7 +196,10 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
                 }
             } else {
                 items(clipItems, key = { it.receivedAt }) { clipItem ->
-                    ClipItemRow(clipItem = clipItem)
+                    ClipItemRow(
+                        clipItem = clipItem,
+                        onRemove = { viewModel.removeClip(clipItem) },
+                    )
                 }
             }
 
@@ -253,12 +263,21 @@ private fun ServiceStatusCard(
 }
 
 @Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-    )
+private fun SectionHeader(title: String, action: @Composable (() -> Unit)? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        if (action != null) {
+            action()
+        }
+    }
     HorizontalDivider()
 }
 
@@ -309,18 +328,57 @@ private fun PairedDeviceRow(device: PairedDevice, onUnpair: () -> Unit) {
 }
 
 @Composable
-private fun ClipItemRow(clipItem: ClipItem) {
+private fun ClipItemRow(clipItem: ClipItem, onRemove: () -> Unit) {
     val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = {
+                Text(
+                    when {
+                        clipItem.type == "image/png" -> "Image"
+                        clipItem.type.startsWith("text/") -> {
+                            val text = String(clipItem.data)
+                            if (text.length > 40) text.take(40) + "…" else text
+                        }
+                        else -> clipItem.type
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            text = { Text(formatDate(clipItem.receivedAt)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDialog = false
+                    copyClipToClipboard(context, clipItem)
+                }) {
+                    Text("Copy")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showDialog = false
+                        shareClip(context, clipItem)
+                    }) {
+                        Text("Share")
+                    }
+                    TextButton(onClick = {
+                        showDialog = false
+                        onRemove()
+                    }) {
+                        Text("Clear")
+                    }
+                }
+            },
+        )
+    }
 
     Card(
-        onClick = {
-            if (clipItem.type.startsWith("text/")) {
-                val text = String(clipItem.data)
-                val clip = ClipData.newPlainText("Fling", text)
-                context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-            }
-        },
+        onClick = { showDialog = true },
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -345,6 +403,50 @@ private fun ClipItemRow(clipItem: ClipItem) {
             )
         }
     }
+}
+
+private fun copyClipToClipboard(context: android.content.Context, clipItem: ClipItem) {
+    val clipboardManager = context.getSystemService(ClipboardManager::class.java)
+    when {
+        clipItem.type.startsWith("text/") -> {
+            val text = String(clipItem.data)
+            clipboardManager.setPrimaryClip(ClipData.newPlainText("Fling", text))
+        }
+        clipItem.type == "image/png" -> {
+            val uri = writeImageToCache(context, clipItem)
+            clipboardManager.setPrimaryClip(ClipData.newUri(context.contentResolver, "Fling", uri))
+        }
+    }
+    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+}
+
+private fun shareClip(context: android.content.Context, clipItem: ClipItem) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        when {
+            clipItem.type.startsWith("text/") -> {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, String(clipItem.data))
+            }
+            clipItem.type == "image/png" -> {
+                type = "image/png"
+                val uri = writeImageToCache(context, clipItem)
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+    }
+    context.startActivity(Intent.createChooser(intent, null))
+}
+
+private fun writeImageToCache(context: android.content.Context, clipItem: ClipItem): android.net.Uri {
+    val dir = java.io.File(context.cacheDir, "clip_images").apply { mkdirs() }
+    val file = java.io.File(dir, "clip_${clipItem.receivedAt}.png")
+    file.writeBytes(clipItem.data)
+    return androidx.core.content.FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file,
+    )
 }
 
 private fun formatDate(timestamp: Long): String {
