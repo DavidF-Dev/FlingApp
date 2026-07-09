@@ -7,7 +7,7 @@ namespace Fling.Commands;
 
 public static class StatusCommand
 {
-    public static Command Create(ConfigStore store)
+    public static Command Create(ConfigStore store, DiscoveryCache? discoveryCache = null, UdpDiscovery? udpDiscovery = null)
     {
         var deviceOption = new Option<string?>("--device")
         {
@@ -41,6 +41,12 @@ public static class StatusCommand
                 }
 
                 devices = [device];
+            }
+
+            if (discoveryCache is not null && udpDiscovery is not null)
+            {
+                var resolver = new DeviceResolver(config, store, discoveryCache, udpDiscovery);
+                await resolver.ResolveAddressesAsync(devices, ct);
             }
 
             using var client = new FlingHttpClient();
