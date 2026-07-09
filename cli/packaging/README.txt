@@ -9,6 +9,10 @@ Getting started
 1. Install the Fling app on your Android phone and open it.
 2. On your PC, pair with your phone:
 
+     fling pair --discover
+
+   Or specify the IP manually:
+
      fling pair <phone-ip>
 
 3. Approve the pairing request on your phone.
@@ -24,9 +28,24 @@ Run "fling --help" for the full list of commands and options.
 
 This archive includes two executables:
 
-     fling.exe    Console app â€” use from a terminal.
-     flingw.exe   GUI-subsystem variant â€” use when invoked by a GUI app
+     fling.exe    Console app - use from a terminal.
+     flingw.exe   GUI-subsystem variant - use when invoked by a GUI app
                   (e.g., Greenshot, tray app) to avoid a console window flash.
+
+Auto-discovery
+--------------
+Once paired, Fling automatically finds your phone on any network via UDP
+broadcast. If the phone's IP changes, commands like "fling send" and
+"fling status" will find it without re-pairing.
+
+Greenshot integration
+---------------------
+Configure Greenshot's External Command Plugin:
+
+     Command:   C:\path\to\flingw.exe
+     Arguments: send --image "{0}" --all
+
+Use flingw.exe (not fling.exe) to avoid a console window flash on each capture.
 
 Troubleshooting
 ---------------
