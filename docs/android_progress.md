@@ -364,50 +364,35 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
-## Phase 11: UDP Discovery Listener
+## Post-Phase Refinements ✓
 
-**Goal:** The Android app responds to UDP broadcast discovery requests from the CLI, enabling auto-discovery on the local network.
+Changes made after all 10 phases were complete.
 
-**Context:** The CLI stores a fixed IP per paired device. When the phone's IP changes (e.g., switching networks), the user must re-pair manually. This phase adds a UDP listener so the CLI can find the phone automatically. See `cli_progress.md` Phase 11 for the CLI side.
+### Recent Clips — actions dialog & clear
 
-> **Decisions:**
->
-> - **Mechanism: UDP broadcast.** Zero dependencies. The CLI broadcasts `FLING?` to `255.255.255.255:7290`; the phone responds with `FLING:<port>:<device_name>` via unicast.
-> - **Discovery port:** UDP 7290 (one below the HTTP port 7291).
-> - **MulticastLock:** Required to receive UDP broadcasts on Android. Acquired only while the listener is active. Uses `WifiManager.createMulticastLock()`. Requires `CHANGE_WIFI_MULTICAST_STATE` permission (normal, no runtime prompt).
-> - **WiFi-only gate:** Only listen when connected to Wi-Fi. Register a `ConnectivityManager` `NetworkCallback` (already exists as `ConnectivityObserver` from Phase 10). Acquire the `MulticastLock` and open the UDP socket when Wi-Fi connects; release and close when Wi-Fi disconnects. This avoids holding the lock on mobile data where broadcast discovery can't work anyway.
-> - **Lifecycle:** The UDP listener starts and stops with `FlingService`. It is a lightweight addition to the existing foreground service — not a separate service.
+- Tapping a clip row opens a dialog with **Copy**, **Share**, and **Clear** options (previously tap-to-copy for text, no-op for images).
+- Copy works for both text and images (images via `FileProvider` URI).
+- Share uses `Intent.ACTION_SEND` with appropriate MIME type.
+- Clear removes the individual clip from the buffer.
+- A **Clear** button in the "Recent Clips" section header clears all clips (hidden when list is empty).
+- `ClipboardBuffer` gained `remove(item)` and `clear()` methods.
 
-### Tasks
+### Content notification actions
 
-- [ ] Add `CHANGE_WIFI_MULTICAST_STATE` permission to the manifest.
-- [ ] Create `DiscoveryListener`:
-  - Opens a `DatagramSocket` on UDP port 7290.
-  - Listens for incoming `FLING?` packets.
-  - Responds to the sender's address with `FLING:<port>:<device_name>` (port from settings, device name from settings).
-  - Runs on a background coroutine tied to the service lifecycle.
-- [ ] Integrate `MulticastLock` management:
-  - Acquire `WifiManager.MulticastLock` when the listener starts.
-  - Release when the listener stops.
-- [ ] Wire WiFi-only gate using the existing `ConnectivityObserver`:
-  - Start the `DiscoveryListener` (and acquire lock) when Wi-Fi is connected.
-  - Stop the listener (and release lock) when Wi-Fi disconnects.
-  - On service start, check current Wi-Fi state to decide initial listener state.
-- [ ] Start/stop `DiscoveryListener` with `FlingService` lifecycle.
+- Notification actions: **Copy** and **Share** buttons (do not dismiss the notification).
+- Tapping the notification body still copies to clipboard and dismisses (existing behavior).
+- Three broadcast actions: `TAP_COPY_CLIP` (tap, copies + dismisses), `COPY_CLIP` (button, copies only), `SHARE_CLIP` (button, opens chooser).
 
-### Unit Tests
+### Service notification — lock screen visibility
 
-- [ ] `DiscoveryListener` responds with correct `FLING:<port>:<name>` format.
-- [ ] `DiscoveryListener` ignores non-`FLING?` packets.
-- [ ] Response includes the configured port and device name (not hardcoded values).
+- Added `VISIBILITY_SECRET` to the persistent "Fling is running" notification so it does not appear on the lock screen.
+- Also added `setSilent(true)`, `setShowWhen(false)`, `setOnlyAlertOnce(true)`.
 
-### Verification
+### Release signing
 
-1. Start the Fling app on a phone connected to Wi-Fi.
-2. From the PC on the same network, send a UDP broadcast to port 7290 — receive a response with the phone's port and device name.
-3. Disconnect Wi-Fi on the phone — listener stops (no response to broadcasts).
-4. Reconnect Wi-Fi — listener resumes.
-5. Stop the Fling service — listener stops.
+- `build.gradle.kts` loads `keystore.properties` (git-ignored) for release signing. Falls back to debug signing when absent.
+- `keystore.properties.template` checked in with the `keytool` command.
+- `base.archivesName` set to `"fling"` — APKs are `fling-debug.apk` / `fling-release.apk`.
 
 ---
 

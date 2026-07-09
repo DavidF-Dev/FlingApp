@@ -38,6 +38,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun removeClip(item: ClipItem) {
+        app.clipboardBuffer.remove(item)
+    }
+
+    fun clearClips() {
+        app.clipboardBuffer.clear()
+    }
+
     fun refreshDevices() {
         viewModelScope.launch {
             app.deviceRepository.refreshFlow()

@@ -108,6 +108,10 @@ class FlingService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setOnlyAlertOnce(true)
             .build()
     }
 
