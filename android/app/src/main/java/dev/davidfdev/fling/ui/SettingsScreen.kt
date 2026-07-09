@@ -2,6 +2,7 @@ package dev.davidfdev.fling.ui
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,11 +38,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.davidfdev.fling.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,9 +201,69 @@ fun SettingsScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "About",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Version ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "David F Dev",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "MIT License",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SourceLink(context)
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
+
+private const val SOURCE_URL = "https://github.com/DavidF-Dev/FlingApp"
+
+@Composable
+private fun SourceLink(context: Context) {
+    val linkColor = MaterialTheme.colorScheme.primary
+    val annotatedString = remember(linkColor) {
+        buildAnnotatedString {
+            append("View source: ")
+            pushStringAnnotation(tag = "URL", annotation = SOURCE_URL)
+            withStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)) {
+                append(SOURCE_URL)
+            }
+            pop()
+        }
+    }
+    ClickableText(
+        text = annotatedString,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        onClick = { offset ->
+            annotatedString.getStringAnnotations("URL", offset, offset)
+                .firstOrNull()?.let { annotation ->
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item)),
+                        )
+                    }
+                }
+        },
+    )
 }
 
 private fun isBatteryOptimizationDisabled(context: Context): Boolean {
