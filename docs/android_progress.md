@@ -364,6 +364,38 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 
 ---
 
+## Post-Phase Refinements ✓
+
+Changes made after all 10 phases were complete.
+
+### Recent Clips — actions dialog & clear
+
+- Tapping a clip row opens a dialog with **Copy**, **Share**, and **Clear** options (previously tap-to-copy for text, no-op for images).
+- Copy works for both text and images (images via `FileProvider` URI).
+- Share uses `Intent.ACTION_SEND` with appropriate MIME type.
+- Clear removes the individual clip from the buffer.
+- A **Clear** button in the "Recent Clips" section header clears all clips (hidden when list is empty).
+- `ClipboardBuffer` gained `remove(item)` and `clear()` methods.
+
+### Content notification actions
+
+- Notification actions: **Copy** and **Share** buttons (do not dismiss the notification).
+- Tapping the notification body still copies to clipboard and dismisses (existing behavior).
+- Three broadcast actions: `TAP_COPY_CLIP` (tap, copies + dismisses), `COPY_CLIP` (button, copies only), `SHARE_CLIP` (button, opens chooser).
+
+### Service notification — lock screen visibility
+
+- Added `VISIBILITY_SECRET` to the persistent "Fling is running" notification so it does not appear on the lock screen.
+- Also added `setSilent(true)`, `setShowWhen(false)`, `setOnlyAlertOnce(true)`.
+
+### Release signing
+
+- `build.gradle.kts` loads `keystore.properties` (git-ignored) for release signing. Falls back to debug signing when absent.
+- `keystore.properties.template` checked in with the `keytool` command.
+- `base.archivesName` set to `"fling"` — APKs are `fling-debug.apk` / `fling-release.apk`.
+
+---
+
 ## Appendix: Device Install Script
 
 `android/scripts/install-device.ps1` builds and installs the APK on a USB-connected physical device. Adapted from StelaApp's equivalent script.
