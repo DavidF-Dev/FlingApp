@@ -19,6 +19,7 @@ publish/
 [Rr]elease/
 x64/
 x86/
+dist/
 
 # NuGet
 packages/

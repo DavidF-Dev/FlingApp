@@ -29,7 +29,7 @@ This is strictly a clipboard tool — not a file-sharing app. Content is transie
 - .NET 8, C#, single-file self-contained executable.
 - Primary interface: command-line (`fling send --clipboard`, `fling send --image <path>`).
 - Integrates with Greenshot via External Command Plugin.
-- Supports multiple paired devices with a default target.
+- Supports multiple paired devices (explicit `--device` or `--all` targeting, no default).
 - Configuration: `%APPDATA%\Fling\config.json`.
 - Future: optional tray app wrapping the same logic with clipboard watching.
 
@@ -165,13 +165,18 @@ Enforced on the Android side. Default: 10 requests per minute. Configurable. Ret
 
 ```
 fling pair <ip:port>                # Pair with a new device
-fling send --clipboard              # Send current clipboard to default device
-fling send --image <path>           # Send an image file
-fling send --text "content"         # Send literal text
-fling send --device <name>          # Target a specific device
-fling send --all                    # Send to all paired devices
+fling pair <ip:port> --name "PC"    # Pair with a custom PC name
+fling pair <ip:port> --force        # Re-pair (new key) even if device exists
+fling send --clipboard --device <n>  # Send current clipboard to a device
+fling send --clipboard --all        # Send current clipboard to all devices
+fling send --image <path> --all     # Send an image file
+fling send --text "content" --all   # Send literal text
+fling send --dry-run --clipboard    # Preview without sending
 fling status                        # Check reachability of paired devices
-fling config                        # Show/edit configuration
+fling config show                   # Show current configuration
+fling config set --max-size 25      # Update max payload size
+fling config set --compress false   # Toggle compression
+fling config remove <name>          # Remove a paired device
 ```
 
 ## CLI Configuration
@@ -185,12 +190,13 @@ Stored at `%APPDATA%\Fling\config.json`:
       "name": "Pixel 8",
       "host": "192.168.1.50",
       "port": 7291,
-      "apiKey": "a1b2c3d4...",
-      "default": true
+      "apiKey": "a1b2c3d4..."
     }
   ],
   "maxSizeMb": 10,
-  "compress": true
+  "compress": true,
+  "hostName": "",
+  "log": false
 }
 ```
 
@@ -235,6 +241,14 @@ Stored at `%APPDATA%\Fling\config.json`:
 | Application-level compression, not HTTP Content-Encoding | GZip is applied to raw bytes before base64 encoding. Avoids Ktor content-encoding negotiation; keeps the JSON envelope uniform. A `compressed` field in the body signals whether to gunzip. |
 | Pairing via notification actions (MVP) | Simpler than launching a dialog Activity. Approval logic is behind an abstraction so the UX can be upgraded to a dialog later without changing route handlers or storage. |
 | Multiple devices in config from the start | Avoids painful config migration later; minimal extra implementation effort. |
+| No default device; require `--device` or `--all` | Prevents accidental broadcast of sensitive clipboard content to unintended devices. A `--default` opt-in flag may be added later. |
+| Device names must be unique | Name is the stable identifier for future mDNS auto-discovery (Phase 10). Duplicate names would make auto-healing ambiguous. |
+| Re-pair generates a new API key | Safer than reusing old keys; the phone must accept the new pairing request regardless. |
+| PC name fallback: `--name` > `config.hostName` > `Environment.MachineName` | Lets users override generic hostnames (e.g., `DESKTOP-ABC123`) persistently via config or per-command via flag. |
+| `fling config set` uses typed options, not flat key/value | Leverages System.CommandLine validation; avoids hand-rolling type parsing for two settings. |
+| `fling send` requires explicit content source (`--clipboard`, `--image`, `--text`) | No implicit default — prevents accidentally sending stale clipboard content. Error message lists available options. |
+| Greenshot uses `send --image "{0}"`, no bare positional shorthand | One-time config; adding file-path detection adds complexity for no real UX gain. |
+| Opt-in file logging via `config.log` | Logs each invocation (args, exit code, error message) to `%APPDATA%\Fling\fling.log`. Off by default. Essential for debugging third-party callers (e.g., Greenshot) where stderr is not visible. Auto-trims at 2000 lines. |
 
 ## Future Considerations
 
@@ -244,3 +258,4 @@ Stored at `%APPDATA%\Fling\config.json`:
 - **QR code pairing**: Scan from phone to pair instantly.
 - **HTTPS**: Self-signed certificate exchanged during pairing for encrypted transport.
 - **Configurable file-copy exclusion on Explorer clipboard**: If user copies a file in Explorer, either skip silently or send the filename as text.
+- **Default device opt-in**: `fling send --default` to send to a designated default device without specifying its name. Deferred; currently requires explicit `--device <name>` or `--all`.

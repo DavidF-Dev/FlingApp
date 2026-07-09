@@ -4,10 +4,10 @@ Windows command-line tool that sends content to paired Android devices running t
 
 ## Architecture
 
-- .NET 8 console application, published as a single self-contained executable (trimmed, no runtime dependency).
+- .NET 8 console application, published as a single self-contained executable (compressed, no runtime dependency).
 - Uses `HttpClient` to POST content to the Android app's HTTP server.
 - Configuration stored in `%APPDATA%\Fling\config.json`.
-- Supports multiple paired devices with a default target.
+- Supports multiple paired devices (explicit `--device` or `--all` targeting, no default).
 
 ## Commands
 
