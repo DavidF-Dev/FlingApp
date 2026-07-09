@@ -48,19 +48,26 @@ public static class ConfigCommand
             Description = "Enable or disable file logging to %APPDATA%\\Fling\\fling.log (true/false)",
         };
 
+        var hostnameOption = new Option<string?>("--hostname")
+        {
+            Description = "PC name sent to devices (defaults to machine name if empty)",
+        };
+
         command.Options.Add(maxSizeOption);
         command.Options.Add(compressOption);
         command.Options.Add(logOption);
+        command.Options.Add(hostnameOption);
 
         command.SetAction((Func<ParseResult, int>)(parseResult =>
         {
             var maxSize = parseResult.GetValue(maxSizeOption);
             var compress = parseResult.GetValue(compressOption);
             var log = parseResult.GetValue(logOption);
+            var hostname = parseResult.GetValue(hostnameOption);
 
-            if (maxSize is null && compress is null && log is null)
+            if (maxSize is null && compress is null && log is null && hostname is null)
             {
-                Console.Error.WriteLine("No settings specified. Use --max-size, --compress, or --log.");
+                Console.Error.WriteLine("No settings specified. Use --max-size, --compress, --log, or --hostname.");
                 return 1;
             }
 
@@ -80,6 +87,9 @@ public static class ConfigCommand
 
             if (log is not null)
                 config.Log = log.Value;
+
+            if (hostname is not null)
+                config.HostName = hostname;
 
             store.Save(config);
             Console.WriteLine("Configuration updated.");
@@ -127,6 +137,7 @@ public static class ConfigCommand
         Console.WriteLine($"Max size:  {config.MaxSizeMb} MB");
         Console.WriteLine($"Compress:  {config.Compress}");
         Console.WriteLine($"Log:       {config.Log}");
+        Console.WriteLine($"Hostname:  {(string.IsNullOrEmpty(config.HostName) ? $"(default: {Environment.MachineName})" : config.HostName)}");
         Console.WriteLine();
 
         if (config.Devices.Count == 0)

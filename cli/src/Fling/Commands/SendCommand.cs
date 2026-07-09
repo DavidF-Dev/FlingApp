@@ -178,13 +178,13 @@ public static class SendCommand
             {
                 if (result.Success)
                 {
-                    Console.WriteLine($"Sent to '{device.Name}'.");
-
                     if (result.DeviceName is not null && result.DeviceName != device.Name)
                     {
                         device.Name = result.DeviceName;
                         configChanged = true;
                     }
+
+                    Console.WriteLine($"Sent to '{device.Name}'.");
                 }
                 else
                 {
