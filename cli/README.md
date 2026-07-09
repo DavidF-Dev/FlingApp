@@ -43,6 +43,7 @@ fling send --image <path> --all # send an image file
 fling send --text "hello" --all # send literal text
 fling status                    # check device reachability
 fling config show               # view configuration
+fling config set --hostname "X" # set PC name sent to devices
 fling --help                    # full help for any command
 ```
 

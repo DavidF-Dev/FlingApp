@@ -384,7 +384,7 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ---
 
-## Phase 12: Device Name Sync
+## Phase 12: Device Name Sync ✅
 
 **Goal:** Device names stay fresh on both sides without re-pairing.
 
@@ -401,36 +401,38 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ### Tasks
 
-- [ ] Add `X-Fling-Name` header to `FlingHttpClient.SendClipAsync` and `PingAsync`:
+- [x] Add `X-Fling-Name` header to `FlingHttpClient.SendClipAsync` and `PingAsync`:
   - Read the PC name from config (same fallback: `hostName` > `Environment.MachineName`).
   - Pass the PC name into `FlingHttpClient` or the calling command so it can set the header.
-- [ ] Update `SendClipAsync` to parse the `name` field from the `/clip` response:
+- [x] Update `SendClipAsync` to parse the `name` field from the `/clip` response:
   - Extend `SendResult` with an optional `DeviceName` property.
   - On success, read the response JSON and extract `name`.
-- [ ] Update device name from `/clip` response in `SendCommand`:
+- [x] Update device name from `/clip` response in `SendCommand`:
   - After a successful send, if `SendResult.DeviceName` differs from the stored `DeviceConfig.Name`, update config and save.
-- [ ] Update device name from `/ping` response in `StatusCommand`:
+- [x] Update device name from `/ping` response in `StatusCommand`:
   - After a successful ping, if the response `name` differs from the stored `DeviceConfig.Name`, update config and save.
-- [ ] Update device name from UDP discovery in `DeviceResolver.ResolveAddressesAsync`:
+- [x] Update device name from UDP discovery in `DeviceResolver.ResolveAddressesAsync`:
   - If a discovered device name differs from the stored name (case-sensitive comparison), update config and save.
   - Note: discovery matches by the *current* stored name (case-insensitive), so this only catches case corrections, not full renames.
+- [x] Add `--hostname` option to `fling config set` for changing the PC name without editing JSON directly.
 
 ### Unit Tests
 
-- [ ] `FlingHttpClient` includes `X-Fling-Name` header in `/clip` and `/ping` requests.
-- [ ] `SendClipAsync` parses `name` from `/clip` response into `SendResult.DeviceName`.
-- [ ] `SendCommand` updates stored device name when `/clip` returns a different name.
-- [ ] `StatusCommand` updates stored device name when `/ping` returns a different name.
-- [ ] `DeviceResolver` updates stored device name when discovery returns a different name.
-- [ ] No config save when names already match.
+- [x] `FlingHttpClient` includes `X-Fling-Name` header in `/clip` and `/ping` requests.
+- [x] `SendClipAsync` parses `name` from `/clip` response into `SendResult.DeviceName`.
+- [x] `SendCommand` updates stored device name when `/clip` returns a different name.
+- [x] `StatusCommand` updates stored device name when `/ping` returns a different name.
+- [x] `DeviceResolver` updates stored device name when discovery returns a different name.
+- [x] No config save when names already match.
 
 ### Verification
 
-1. Change the phone's device name in the Android app settings.
-2. Run `fling send --clipboard --all` — send succeeds, stored device name in `config.json` updates to the new name.
-3. Run `fling status` — also picks up the new name.
-4. Change `hostName` in CLI config via `fling config set --hostname "New PC"`.
-5. Run `fling send` — phone's paired devices list shows the new PC name.
+1. ~~Change the phone's device name in the Android app settings.~~
+2. ~~Run `fling send --clipboard --all` — send succeeds, stored device name in `config.json` updates to the new name.~~
+3. ~~Run `fling status` — also picks up the new name.~~
+4. ~~Change `hostName` in CLI config via `fling config set --hostname "New PC"`.~~
+5. ~~Run `fling send` — phone's paired devices list shows the new PC name.~~
+6. ✅ All unit tests pass (110/110).
 
 ---
 
