@@ -444,7 +444,7 @@ Changes made after all 10 phases were complete.
 
 ---
 
-## Phase 12: Device Name Sync
+## Phase 12: Device Name Sync ✓
 
 **Goal:** PC names stay fresh on the phone without re-pairing.
 
@@ -455,22 +455,23 @@ Changes made after all 10 phases were complete.
 > - **PC → Phone (via `X-Fling-Name` header):** The CLI sends `X-Fling-Name` header alongside `X-Fling-Key` on `/clip` and `/ping` requests. The phone reads it and updates `PairedDevice.name` in `DeviceRepository` if it differs. Header is optional — older CLI versions that don't send it are unaffected.
 > - **Phone → PC (via `/clip` response):** Add `"name"` field to the `/clip` response: `{"status":"ok","name":"My Phone"}`. The CLI reads it and updates its stored device name if it differs. This is the primary sync path since `fling send` is the most-used command. Backward-compatible: older CLIs ignore the new field.
 > - **Propagation timing:** Updates happen on the next natural interaction (send or status check), not immediately.
+> - **`DeviceRepository.updateName`:** Dedicated method — only writes if the name actually differs.
 
 ### Tasks
 
-- [ ] Read `X-Fling-Name` header in the authentication plugin (where `X-Fling-Key` is already read):
+- [x] Read `X-Fling-Name` header in the authentication plugin (where `X-Fling-Key` is already read):
   - After successful auth, if `X-Fling-Name` is present and differs from the stored `PairedDevice.name`, update the name via `DeviceRepository`.
-- [ ] Ensure `DeviceRepository` supports updating a device's name (or use store/delete to replace).
-- [ ] Add `"name"` field to the `/clip` response:
+- [x] Ensure `DeviceRepository` supports updating a device's name (or use store/delete to replace).
+- [x] Add `"name"` field to the `/clip` response:
   - Change from `{"status":"ok"}` to `{"status":"ok","name":"<device_name>"}`.
   - Use the same device name source as `/ping` and `/pair` responses.
 
 ### Unit Tests
 
-- [ ] Request with `X-Fling-Name` header updates stored PC name — via `testApplication`.
-- [ ] Request without `X-Fling-Name` header leaves stored name unchanged.
-- [ ] Request with same name as stored does not trigger a write.
-- [ ] `POST /clip` response includes `name` field matching the device name.
+- [x] Request with `X-Fling-Name` header updates stored PC name — via `testApplication`.
+- [x] Request without `X-Fling-Name` header leaves stored name unchanged.
+- [x] Request with same name as stored does not trigger a write.
+- [x] `POST /clip` response includes `name` field matching the device name.
 
 ### Verification
 

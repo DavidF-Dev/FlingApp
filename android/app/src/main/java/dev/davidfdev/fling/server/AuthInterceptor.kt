@@ -15,8 +15,14 @@ private val ApiKeyAuthPlugin = createRouteScopedPlugin(
 
     onCall { call ->
         val key = call.request.headers["X-Fling-Key"]
-        if (key == null || repo.findByKey(key) == null) {
+        val device = if (key != null) repo.findByKey(key) else null
+        if (device == null) {
             call.respond(HttpStatusCode.Unauthorized, ErrorResponse("unauthorized"))
+            return@onCall
+        }
+        val newName = call.request.headers["X-Fling-Name"]
+        if (newName != null && newName.isNotBlank() && newName != device.name) {
+            repo.updateName(device.apiKey, newName)
         }
     }
 }

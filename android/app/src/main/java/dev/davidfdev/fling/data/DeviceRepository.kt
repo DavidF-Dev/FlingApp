@@ -38,6 +38,16 @@ class DeviceRepository(private val file: File) {
         _flow.value = devices.toList()
     }
 
+    suspend fun updateName(apiKey: String, newName: String) = mutex.withLock {
+        val devices = readFile().toMutableList()
+        val index = devices.indexOfFirst { it.apiKey == apiKey }
+        if (index >= 0 && devices[index].name != newName) {
+            devices[index] = devices[index].copy(name = newName)
+            writeFile(devices)
+            _flow.value = devices.toList()
+        }
+    }
+
     suspend fun delete(apiKey: String) = mutex.withLock {
         val devices = readFile().filter { it.apiKey != apiKey }
         writeFile(devices)

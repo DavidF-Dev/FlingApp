@@ -61,6 +61,7 @@ class ClipRouteTest {
 
         val body = Json.decodeFromString<StatusResponse>(response.bodyAsText())
         assertEquals("ok", body.status)
+        assertEquals("Phone", body.name)
         assertEquals(1, buffer.size())
 
         val item = buffer.getAll().first()

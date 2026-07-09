@@ -43,7 +43,7 @@ data class ClipRequest(
 )
 
 @Serializable
-data class StatusResponse(val status: String)
+data class StatusResponse(val status: String, val name: String? = null)
 
 @Serializable
 data class ErrorResponse(val error: String)
@@ -161,7 +161,7 @@ fun Application.configureFling(
                     clipboardBuffer.add(item)
                     contentNotifier?.notify(item)
 
-                    call.respond(StatusResponse(status = "ok"))
+                    call.respond(StatusResponse(status = "ok", name = deviceName))
                 }
             }
         }
