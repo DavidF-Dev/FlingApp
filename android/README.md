@@ -1,4 +1,4 @@
-# Fling — Android App
+# Fling - Android App
 
 The Android half of [Fling](../README.md). Runs an embedded HTTP server in a foreground
 service to receive clipboard content from paired PCs over the local network.

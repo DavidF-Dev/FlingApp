@@ -1,21 +1,21 @@
-# Fling — Paste on Phone
+# Fling - Paste on Phone
 
 [![Release](https://img.shields.io/github/v/release/DavidF-Dev/FlingApp?style=flat-square)](https://github.com/DavidF-Dev/FlingApp/releases/latest)
 [![License](https://img.shields.io/github/license/DavidF-Dev/FlingApp?style=flat-square)](LICENSE)
 [![CI](https://github.com/DavidF-Dev/FlingApp/actions/workflows/ci.yml/badge.svg)](https://github.com/DavidF-Dev/FlingApp/actions/workflows/ci.yml)
 
 A lightweight tool for sending clipboard content from a Windows PC to an Android
-phone over the local network. Take a screenshot, copy some text, or grab an image
-— it arrives on your phone as a notification, ready to paste.
+phone over the local network. Take a screenshot, copy some text, or grab an image,
+and it arrives on your phone as a notification, ready to paste.
 
 ## How it works
 
 The PC runs a CLI tool that sends content over HTTP to the phone. The phone runs a
 foreground service with an embedded HTTP server that receives it. Pair once, then
-it just works — auto-discovery finds your phone on any network without re-pairing.
+it just works. Auto-discovery finds your phone on any network without re-pairing.
 
 This is a **clipboard tool**, not a file-sharing app. Content goes to the phone's
-clipboard, not to storage. Notifications auto-expire. No cloud, no relay — local
+clipboard, not to storage. Notifications auto-expire. No cloud, no relay - local
 network only.
 
 ## Components
