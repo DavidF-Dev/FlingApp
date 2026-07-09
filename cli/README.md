@@ -37,6 +37,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what's in each release.
 
 ```
 fling pair <ip[:port]>          # pair with a device
+fling pair --discover           # find and pair via network discovery
 fling send --clipboard --all    # send clipboard contents
 fling send --image <path> --all # send an image file
 fling send --text "hello" --all # send literal text
@@ -44,6 +45,13 @@ fling status                    # check device reachability
 fling config show               # view configuration
 fling --help                    # full help for any command
 ```
+
+### Auto-discovery
+
+The CLI automatically discovers paired devices on the local network via UDP broadcast.
+If a phone's IP changes (e.g., switching Wi-Fi networks), `fling send` and `fling status`
+will find it without re-pairing. Discovered addresses are cached for 60 seconds and
+silently saved to config as a fallback for when discovery is unavailable.
 
 ### Greenshot integration
 
