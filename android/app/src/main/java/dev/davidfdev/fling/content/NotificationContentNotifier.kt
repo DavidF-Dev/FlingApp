@@ -23,37 +23,39 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
-            if (intent.action != ACTION_COPY) return
-
-            val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
             val type = intent.getStringExtra(EXTRA_TYPE) ?: return
+            val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
 
-            when {
-                type.startsWith("text/") -> {
-                    val text = intent.getStringExtra(EXTRA_TEXT) ?: return
-                    val clip = android.content.ClipData.newPlainText("Fling", text)
-                    ctx.getSystemService(android.content.ClipboardManager::class.java)
-                        .setPrimaryClip(clip)
+            when (intent.action) {
+                ACTION_TAP_COPY -> {
+                    copyToClipboard(ctx, type, intent)
+                    Toast.makeText(ctx, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                    if (notificationId != -1) {
+                        ctx.getSystemService(NotificationManager::class.java).cancel(notificationId)
+                    }
                 }
-                type == "image/png" -> {
-                    val uriString = intent.getStringExtra(EXTRA_URI) ?: return
-                    val uri = android.net.Uri.parse(uriString)
-                    val clip = android.content.ClipData.newUri(ctx.contentResolver, "Fling", uri)
-                    ctx.getSystemService(android.content.ClipboardManager::class.java)
-                        .setPrimaryClip(clip)
+                ACTION_COPY -> {
+                    copyToClipboard(ctx, type, intent)
+                    Toast.makeText(ctx, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                 }
-            }
-
-            Toast.makeText(ctx, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-
-            if (notificationId != -1) {
-                ctx.getSystemService(NotificationManager::class.java).cancel(notificationId)
+                ACTION_SHARE -> {
+                    val shareIntent = buildShareIntent(ctx, type, intent)
+                    if (shareIntent != null) {
+                        ctx.startActivity(Intent.createChooser(shareIntent, null).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    }
+                }
             }
         }
     }
 
     init {
-        val filter = IntentFilter(ACTION_COPY)
+        val filter = IntentFilter().apply {
+            addAction(ACTION_TAP_COPY)
+            addAction(ACTION_COPY)
+            addAction(ACTION_SHARE)
+        }
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         createChannel()
     }
@@ -61,22 +63,41 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
     override fun notify(item: ClipItem) {
         val notificationId = nextId.getAndIncrement()
 
-        val copyIntent = Intent(ACTION_COPY).apply {
-            setPackage(context.packageName)
-            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            putExtra(EXTRA_TYPE, item.type)
+        val baseExtras = mapOf(
+            EXTRA_NOTIFICATION_ID to notificationId,
+            EXTRA_TYPE to item.type,
+        )
+
+        val textExtra = if (item.type.startsWith("text/")) String(item.data) else null
+        val uriExtra = if (item.type == "image/png") {
+            writeImageToCache(item.data, notificationId).toString()
+        } else {
+            null
         }
+
+        val tapIntent = buildBroadcastIntent(ACTION_TAP_COPY, baseExtras, textExtra, uriExtra)
+        val copyIntent = buildBroadcastIntent(ACTION_COPY, baseExtras, textExtra, uriExtra)
+        val shareIntent = buildBroadcastIntent(ACTION_SHARE, baseExtras, textExtra, uriExtra)
+
+        val tapPending = PendingIntent.getBroadcast(
+            context, notificationId * 10, tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val copyPending = PendingIntent.getBroadcast(
+            context, notificationId * 10 + 1, copyIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val sharePending = PendingIntent.getBroadcast(
+            context, notificationId * 10 + 2, shareIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
         when {
             item.type.startsWith("text/") -> {
-                val text = String(item.data)
-                copyIntent.putExtra(EXTRA_TEXT, text)
-                showTextNotification(notificationId, text, copyIntent)
+                showTextNotification(notificationId, textExtra!!, tapPending, copyPending, sharePending)
             }
             item.type == "image/png" -> {
-                val uri = writeImageToCache(item.data, notificationId)
-                copyIntent.putExtra(EXTRA_URI, uri.toString())
-                showImageNotification(notificationId, item.data, copyIntent)
+                showImageNotification(notificationId, item.data, tapPending, copyPending, sharePending)
             }
         }
     }
@@ -85,46 +106,104 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
         context.unregisterReceiver(receiver)
     }
 
-    private fun showTextNotification(id: Int, text: String, copyIntent: Intent) {
-        val preview = if (text.length > 100) text.take(100) + "…" else text
+    private fun buildBroadcastIntent(
+        action: String,
+        extras: Map<String, Any>,
+        text: String?,
+        uri: String?,
+    ): Intent = Intent(action).apply {
+        setPackage(context.packageName)
+        extras.forEach { (key, value) ->
+            when (value) {
+                is Int -> putExtra(key, value)
+                is String -> putExtra(key, value)
+            }
+        }
+        text?.let { putExtra(EXTRA_TEXT, it) }
+        uri?.let { putExtra(EXTRA_URI, it) }
+    }
 
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, id, copyIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+    private fun copyToClipboard(ctx: Context, type: String, intent: Intent) {
+        val clipboardManager = ctx.getSystemService(android.content.ClipboardManager::class.java)
+        when {
+            type.startsWith("text/") -> {
+                val text = intent.getStringExtra(EXTRA_TEXT) ?: return
+                clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText("Fling", text))
+            }
+            type == "image/png" -> {
+                val uriString = intent.getStringExtra(EXTRA_URI) ?: return
+                val uri = android.net.Uri.parse(uriString)
+                clipboardManager.setPrimaryClip(
+                    android.content.ClipData.newUri(ctx.contentResolver, "Fling", uri),
+                )
+            }
+        }
+    }
+
+    private fun buildShareIntent(ctx: Context, type: String, intent: Intent): Intent? {
+        return when {
+            type.startsWith("text/") -> {
+                val text = intent.getStringExtra(EXTRA_TEXT) ?: return null
+                Intent(Intent.ACTION_SEND).apply {
+                    this.type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
+            }
+            type == "image/png" -> {
+                val uriString = intent.getStringExtra(EXTRA_URI) ?: return null
+                val uri = android.net.Uri.parse(uriString)
+                Intent(Intent.ACTION_SEND).apply {
+                    this.type = "image/png"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            }
+            else -> null
+        }
+    }
+
+    private fun showTextNotification(
+        id: Int,
+        text: String,
+        tapPending: PendingIntent,
+        copyPending: PendingIntent,
+        sharePending: PendingIntent,
+    ) {
+        val preview = if (text.length > 100) text.take(100) + "…" else text
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("Clipboard received")
             .setContentText(preview)
             .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
+            .setContentIntent(tapPending)
+            .addAction(0, "Copy", copyPending)
+            .addAction(0, "Share", sharePending)
             .setTimeoutAfter(TIMEOUT_MS)
             .build()
 
         context.getSystemService(NotificationManager::class.java).notify(id, notification)
     }
 
-    private fun showImageNotification(id: Int, imageData: ByteArray, copyIntent: Intent) {
+    private fun showImageNotification(
+        id: Int,
+        imageData: ByteArray,
+        tapPending: PendingIntent,
+        copyPending: PendingIntent,
+        sharePending: PendingIntent,
+    ) {
         val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
-
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, id, copyIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("Image received")
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
+            .setContentIntent(tapPending)
+            .addAction(0, "Copy", copyPending)
+            .addAction(0, "Share", sharePending)
             .setTimeoutAfter(TIMEOUT_MS)
 
         if (bitmap != null) {
-            builder.setStyle(
-                NotificationCompat.BigPictureStyle().bigPicture(bitmap)
-            )
+            builder.setStyle(NotificationCompat.BigPictureStyle().bigPicture(bitmap))
         } else {
             builder.setContentText("Image (could not generate preview)")
         }
@@ -152,7 +231,9 @@ class NotificationContentNotifier(private val context: Context) : ContentNotifie
         const val CHANNEL_ID = "fling_content"
         private const val FIRST_NOTIFICATION_ID = 100
         private const val TIMEOUT_MS = 5L * 60 * 1000
+        private const val ACTION_TAP_COPY = "dev.davidfdev.fling.TAP_COPY_CLIP"
         private const val ACTION_COPY = "dev.davidfdev.fling.COPY_CLIP"
+        private const val ACTION_SHARE = "dev.davidfdev.fling.SHARE_CLIP"
         private const val EXTRA_NOTIFICATION_ID = "notification_id"
         private const val EXTRA_TYPE = "clip_type"
         private const val EXTRA_TEXT = "clip_text"
