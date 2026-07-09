@@ -49,27 +49,46 @@ public static class StatusCommand
                 await resolver.ResolveAddressesAsync(devices, ct);
             }
 
+            var pcName = string.IsNullOrEmpty(config.HostName) ? Environment.MachineName : config.HostName;
+
             using var client = new FlingHttpClient();
             var tasks = devices.Select(async device =>
             {
                 var sw = Stopwatch.StartNew();
                 try
                 {
-                    var response = await client.PingAsync(device.Host, device.Port, device.ApiKey, ct);
+                    var response = await client.PingAsync(device.Host, device.Port, device.ApiKey, pcName, ct);
                     sw.Stop();
-                    return new DeviceStatus(device, true, response.Version, sw.ElapsedMilliseconds, null);
+                    return new DeviceStatus(device, true, response.Name, response.Version, sw.ElapsedMilliseconds, null);
                 }
                 catch (TaskCanceledException)
                 {
-                    return new DeviceStatus(device, false, null, null, "timeout");
+                    return new DeviceStatus(device, false, null, null, null, "timeout");
                 }
                 catch (HttpRequestException ex)
                 {
-                    return new DeviceStatus(device, false, null, null, ex.Message);
+                    return new DeviceStatus(device, false, null, null, null, ex.Message);
                 }
             });
 
             var results = await Task.WhenAll(tasks);
+
+            var configChanged = false;
+            foreach (var r in results)
+            {
+                if (r.Online && r.ResponseName is not null && r.ResponseName != r.Device.Name)
+                {
+                    r.Device.Name = r.ResponseName;
+                    configChanged = true;
+                }
+            }
+
+            if (configChanged)
+            {
+                try { store.Save(config); }
+                catch { }
+            }
+
             PrintTable(results);
 
             return results.All(r => r.Online) ? 0 : 2;
@@ -101,6 +120,7 @@ public static class StatusCommand
     private sealed record DeviceStatus(
         DeviceConfig Device,
         bool Online,
+        string? ResponseName,
         string? Version,
         long? LatencyMs,
         string? Error);

@@ -156,6 +156,8 @@ public static class SendCommand
 
             await resolver.ResolveAddressesAsync(devices, ct);
 
+            var pcName = string.IsNullOrEmpty(config.HostName) ? Environment.MachineName : config.HostName;
+
             // Send
             using var client = new FlingHttpClient();
             var tasks = devices.Select(async device =>
@@ -163,12 +165,13 @@ public static class SendCommand
                 if (verbose)
                     Console.WriteLine($"Sending to {device.Name} ({device.Host}:{device.Port})...");
 
-                var result = await client.SendClipAsync(device.Host, device.Port, device.ApiKey, payload, ct);
+                var result = await client.SendClipAsync(device.Host, device.Port, device.ApiKey, payload, pcName, ct);
                 return (device, result);
             });
 
             var results = await Task.WhenAll(tasks);
 
+            var configChanged = false;
             var hasAuthFailure = false;
             var hasNetworkFailure = false;
             foreach (var (device, result) in results)
@@ -176,6 +179,12 @@ public static class SendCommand
                 if (result.Success)
                 {
                     Console.WriteLine($"Sent to '{device.Name}'.");
+
+                    if (result.DeviceName is not null && result.DeviceName != device.Name)
+                    {
+                        device.Name = result.DeviceName;
+                        configChanged = true;
+                    }
                 }
                 else
                 {
@@ -185,6 +194,12 @@ public static class SendCommand
                     else
                         hasNetworkFailure = true;
                 }
+            }
+
+            if (configChanged)
+            {
+                try { store.Save(config); }
+                catch { }
             }
 
             if (hasAuthFailure) return 3;

@@ -33,7 +33,7 @@ public sealed class FlingHttpClient : IDisposable
                ?? throw new InvalidOperationException("Empty response from device.");
     }
 
-    public async Task<SendResult> SendClipAsync(string host, int port, string apiKey, ClipPayload payload, CancellationToken ct = default)
+    public async Task<SendResult> SendClipAsync(string host, int port, string apiKey, ClipPayload payload, string? pcName = null, CancellationToken ct = default)
     {
         _http.Timeout = TimeSpan.FromSeconds(10);
 
@@ -43,6 +43,8 @@ public sealed class FlingHttpClient : IDisposable
             Content = JsonContent.Create(payload, options: JsonOptions),
         };
         request.Headers.Add("X-Fling-Key", apiKey);
+        if (pcName is not null)
+            request.Headers.Add("X-Fling-Name", pcName);
 
         HttpResponseMessage response;
         try
@@ -70,16 +72,26 @@ public sealed class FlingHttpClient : IDisposable
         if (!response.IsSuccessStatusCode)
             return new SendResult { Success = false, Error = $"Device returned HTTP {(int)response.StatusCode}." };
 
-        return new SendResult { Success = true };
+        string? deviceName = null;
+        try
+        {
+            var clipResponse = await response.Content.ReadFromJsonAsync<ClipResponse>(JsonOptions, ct);
+            deviceName = clipResponse?.Name;
+        }
+        catch { }
+
+        return new SendResult { Success = true, DeviceName = deviceName };
     }
 
-    public async Task<PingResponse> PingAsync(string host, int port, string apiKey, CancellationToken ct = default)
+    public async Task<PingResponse> PingAsync(string host, int port, string apiKey, string? pcName = null, CancellationToken ct = default)
     {
         _http.Timeout = TimeSpan.FromSeconds(3);
 
         var url = $"http://{FormatHost(host)}:{port}/ping";
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add("X-Fling-Key", apiKey);
+        if (pcName is not null)
+            request.Headers.Add("X-Fling-Name", pcName);
 
         var response = await _http.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
@@ -113,9 +125,16 @@ public sealed class PingResponse
     public string Version { get; set; } = "";
 }
 
+public sealed class ClipResponse
+{
+    public string Status { get; set; } = "";
+    public string? Name { get; set; }
+}
+
 public sealed class SendResult
 {
     public bool Success { get; init; }
     public string? Error { get; init; }
     public bool AuthFailed { get; init; }
+    public string? DeviceName { get; init; }
 }
