@@ -16,7 +16,7 @@ The CLI is the **client** in this architecture — it sends content to the Andro
 - [x] Add NuGet dependencies: `System.CommandLine` (command-line parsing), `System.Text.Json`.
 - [x] Define config model classes:
   - `FlingConfig`: `Devices: List<DeviceConfig>`, `MaxSizeMb: int = 10`, `Compress: bool = true`.
-  - `DeviceConfig`: `Name: string`, `Host: string`, `Port: int = 7291`, `ApiKey: string`, `Default: bool`.
+  - `DeviceConfig`: `Name: string`, `Host: string`, `Port: int = 7291`, `ApiKey: string`.
 - [x] Create `ConfigStore`:
   - `Load()` — reads `%APPDATA%\Fling\config.json`. Returns defaults if file doesn't exist.
   - `Save(FlingConfig)` — writes config. Creates the directory if needed.
@@ -94,7 +94,7 @@ The CLI is the **client** in this architecture — it sends content to the Andro
   - On `"status": "rejected"`: print rejection message. Don't save.
   - On timeout/connection error: print a clear error message.
   - `--name` option to override PC name. `--force` option to re-pair existing devices.
-- [x] If a device with the same host:port or same name already exists in config, reject unless `--force`. Device names must be unique — this is the stable identifier used for future auto-discovery (Phase 10).
+- [x] If a device with the same host:port or same name already exists in config, reject unless `--force`. Device names must be unique — this is the stable identifier used for UDP broadcast auto-discovery (Phase 11).
 
 ### Unit Tests
 

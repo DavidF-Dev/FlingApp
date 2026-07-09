@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli:
+    name: CLI (build & test)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 8.0 provides the net8.0-windows desktop targeting pack; 10.0 (the dev SDK)
+      # can parse the .slnx solution format. The highest installed SDK is used.
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build
+        run: dotnet build cli/Fling.slnx -c Release -p:TreatWarningsAsErrors=true --nologo
+
+      - name: Test
+        run: dotnet test cli/Fling.slnx -c Release --no-build --nologo
+
+  android:
+    name: Android (build & test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+        working-directory: android
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest
+        working-directory: android

@@ -231,15 +231,6 @@ Stored at `%APPDATA%\Fling\config.json`:
 - URIs / links (send as plain text if needed)
 - Arbitrary binary data
 
-## Security
-
-- Shared API key exchanged during pairing, stored on both sides.
-- All requests require the key in `X-Fling-Key` header.
-- Pairing requires explicit user approval on the phone.
-- Plain HTTP for MVP (acceptable on trusted local network).
-- Future: HTTPS with self-signed cert exchanged during pairing.
-- Future: auto-discovery (mDNS) and QR code pairing.
-
 ## Decisions Log
 
 | Decision | Rationale |
@@ -257,7 +248,7 @@ Stored at `%APPDATA%\Fling\config.json`:
 | Pairing via notification actions (MVP) | Simpler than launching a dialog Activity. Approval logic is behind an abstraction so the UX can be upgraded to a dialog later without changing route handlers or storage. |
 | Multiple devices in config from the start | Avoids painful config migration later; minimal extra implementation effort. |
 | No default device; require `--device` or `--all` | Prevents accidental broadcast of sensitive clipboard content to unintended devices. A `--default` opt-in flag may be added later. |
-| Device names must be unique | Name is the stable identifier for future mDNS auto-discovery (Phase 10). Duplicate names would make auto-healing ambiguous. |
+| Device names must be unique | Name is the stable identifier for UDP broadcast auto-discovery (Phase 11). Duplicate names would make auto-healing ambiguous. |
 | Re-pair generates a new API key | Safer than reusing old keys; the phone must accept the new pairing request regardless. |
 | PC name fallback: `--name` > `config.hostName` > `Environment.MachineName` | Lets users override generic hostnames (e.g., `DESKTOP-ABC123`) persistently via config or per-command via flag. |
 | `fling config set` uses typed options, not flat key/value | Leverages System.CommandLine validation; avoids hand-rolling type parsing for two settings. |
@@ -271,8 +262,6 @@ Stored at `%APPDATA%\Fling\config.json`:
 
 - **Tray app**: GUI wrapper with clipboard watching (auto-sync mode), connection status, settings.
 - **Two-way sync**: Android sends clipboard back to PC.
-- **~~Auto-discovery~~**: Implemented in Phase 11. See Discovery (UDP Broadcast) section above.
-- **QR code pairing**: Scan from phone to pair instantly.
 - **HTTPS**: Self-signed certificate exchanged during pairing for encrypted transport.
 - **Configurable file-copy exclusion on Explorer clipboard**: If user copies a file in Explorer, either skip silently or send the filename as text.
 - **Default device opt-in**: `fling send --default` to send to a designated default device without specifying its name. Deferred; currently requires explicit `--device <name>` or `--all`.

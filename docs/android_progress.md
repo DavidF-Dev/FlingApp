@@ -76,7 +76,7 @@ This is a **live document** tracking the phased implementation of the Fling Andr
 > - **Storage:** Paired devices are stored in a plain JSON file (`paired_devices.json` in app internal storage) managed via kotlinx-serialization. Not DataStore Preferences — a structured list doesn't belong in scalar key-value storage.
 > - **Phone name:** Uses `Build.MODEL` for now (same as `/ping`). Later (Phase 9) this becomes a persistent random name (e.g., "Handsome Orange") to avoid user-editable names causing desync between PC and phone.
 > - **PC name:** The `"name"` field in the pair request body is what the PC declares itself as. The phone stores it in `PairedDevice` and displays it in the "Paired devices" list. This name is exchanged only at pair-time.
-> - **Name freshness (future):** `/ping` already returns the phone's current name; the CLI can compare and update its stored copy passively. PC→phone staleness is accepted until a future sync mechanism.
+> - **Name freshness:** Implemented in Phase 12. `/ping` and `/clip` responses include the phone's current name; the CLI updates its stored copy. PC→phone: CLI sends `X-Fling-Name` header; phone updates stored PC name.
 > - **Concurrent pairing:** Only one pending request at a time. A second request arriving while one is pending is auto-rejected.
 > - **Broadcast intents:** Pairing notification action PendingIntents must use `setPackage()` to target the app explicitly — implicit intents are blocked by `RECEIVER_NOT_EXPORTED`.
 
@@ -168,7 +168,7 @@ This is a **live document** tracking the phased implementation of the Fling Andr
   - If `"compressed": true` in the JSON body, gunzip the decoded bytes (for text types). This is application-level compression — the HTTP `Content-Encoding` header is not used.
   - Enforce max payload size (default 10 MB on the decoded content). Return `413` if exceeded.
   - Add to `ClipboardBuffer`.
-  - Respond `{"status":"ok"}`.
+  - Respond `{"status":"ok","name":"<device_name>"}`.
 - [x] Return appropriate error responses:
   - `400` for malformed JSON or unsupported type.
   - `413` for oversized payloads.

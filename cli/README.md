@@ -1,4 +1,4 @@
-# Fling — CLI Tool
+# Fling - CLI Tool
 
 The Windows half of [Fling](../README.md). A command-line tool that sends clipboard
 content to paired Android devices running the Fling app over the local network.
@@ -26,8 +26,8 @@ dotnet test Fling.slnx               # unit tests (xUnit)
 Produces `dist/fling-<version>-win-x64.zip` containing two self-contained executables
 (no .NET runtime needed):
 
-- **`fling.exe`** — console app for terminal use.
-- **`flingw.exe`** — GUI-subsystem variant (no console window). Use this when invoking
+- **`fling.exe`** - console app for terminal use.
+- **`flingw.exe`** - GUI-subsystem variant (no console window). Use this when invoking
   from a GUI caller like Greenshot or a tray app.
 
 Both are identical except for the PE subsystem header.
