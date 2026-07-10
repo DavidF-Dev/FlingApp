@@ -21,6 +21,7 @@ Getting started
      fling send --clipboard --all
      fling send --text "hello" --device "Pixel"
      fling send --image screenshot.png --all
+     fling send --file notes.txt --all
 
 5. Tap the notification on your phone to copy to clipboard.
 
@@ -31,6 +32,14 @@ This archive includes two executables:
      fling.exe    Console app - use from a terminal.
      flingw.exe   GUI-subsystem variant - use when invoked by a GUI app
                   (e.g., Greenshot, tray app) to avoid a console window flash.
+
+Send to menu
+------------
+Run "fling install" to add Fling to the Windows "Send to" context menu.
+Right-click any file in Explorer and choose Send to > Fling to send it.
+
+Image files are sent as images, text files send their contents, and binary
+files send the file path. Run "fling uninstall" to remove the shortcut.
 
 Auto-discovery
 --------------

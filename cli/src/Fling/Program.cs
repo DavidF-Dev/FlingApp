@@ -14,6 +14,8 @@ rootCommand.Subcommands.Add(ConfigCommand.Create(store));
 rootCommand.Subcommands.Add(PairCommand.Create(store));
 rootCommand.Subcommands.Add(SendCommand.Create(store, clipboardReader, discoveryCache, udpDiscovery));
 rootCommand.Subcommands.Add(StatusCommand.Create(store, discoveryCache, udpDiscovery));
+rootCommand.Subcommands.Add(InstallCommand.Create());
+rootCommand.Subcommands.Add(UninstallCommand.Create());
 
 FlingLog? log = null;
 try

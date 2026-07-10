@@ -22,6 +22,10 @@ public static class SendCommand
         {
             Description = "Send literal text",
         };
+        var fileOption = new Option<string?>("--file")
+        {
+            Description = "Send a file (auto-detects image vs text)",
+        };
         var deviceOption = new Option<string?>("--device")
         {
             Description = "Target device name",
@@ -43,6 +47,7 @@ public static class SendCommand
         command.Options.Add(clipboardOption);
         command.Options.Add(imageOption);
         command.Options.Add(textOption);
+        command.Options.Add(fileOption);
         command.Options.Add(deviceOption);
         command.Options.Add(allOption);
         command.Options.Add(dryRunOption);
@@ -53,6 +58,7 @@ public static class SendCommand
             var useClipboard = parseResult.GetValue(clipboardOption);
             var imagePath = parseResult.GetValue(imageOption);
             var text = parseResult.GetValue(textOption);
+            var filePath = parseResult.GetValue(fileOption);
             var deviceName = parseResult.GetValue(deviceOption);
             var all = parseResult.GetValue(allOption);
             var dryRun = parseResult.GetValue(dryRunOption);
@@ -61,15 +67,15 @@ public static class SendCommand
             var config = store.Load();
 
             // Resolve content
-            var sourceCount = (useClipboard ? 1 : 0) + (imagePath is not null ? 1 : 0) + (text is not null ? 1 : 0);
+            var sourceCount = (useClipboard ? 1 : 0) + (imagePath is not null ? 1 : 0) + (text is not null ? 1 : 0) + (filePath is not null ? 1 : 0);
             if (sourceCount == 0)
             {
-                Console.Error.WriteLine("No content source specified. Use --clipboard, --image <path>, or --text \"content\".");
+                Console.Error.WriteLine("No content source specified. Use --clipboard, --image <path>, --text \"content\", or --file <path>.");
                 return 1;
             }
             if (sourceCount > 1)
             {
-                Console.Error.WriteLine("Specify only one content source: --clipboard, --image, or --text.");
+                Console.Error.WriteLine("Specify only one content source: --clipboard, --image, --text, or --file.");
                 return 1;
             }
 
@@ -104,6 +110,38 @@ public static class SendCommand
                     return 1;
                 }
                 contentType = "image/png";
+            }
+            else if (filePath is not null)
+            {
+                try
+                {
+                    var fileContent = FileContentResolver.Resolve(filePath);
+                    switch (fileContent.Kind)
+                    {
+                        case FileContentKind.Image:
+                            rawBytes = ImageLoader.LoadAsPng(fileContent.Path);
+                            contentType = "image/png";
+                            break;
+                        case FileContentKind.Text:
+                            rawBytes = File.ReadAllBytes(fileContent.Path);
+                            contentType = "text/plain";
+                            break;
+                        default:
+                            rawBytes = Encoding.UTF8.GetBytes(Path.GetFullPath(fileContent.Path));
+                            contentType = "text/plain";
+                            break;
+                    }
+                }
+                catch (FileNotFoundException)
+                {
+                    Console.Error.WriteLine($"File not found: {filePath}");
+                    return 1;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Could not read file: {ex.Message}");
+                    return 1;
+                }
             }
             else
             {

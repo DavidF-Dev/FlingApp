@@ -40,12 +40,26 @@ fling pair <ip[:port]>          # pair with a device
 fling pair --discover           # find and pair via network discovery
 fling send --clipboard --all    # send clipboard contents
 fling send --image <path> --all # send an image file
+fling send --file <path> --all  # send a file (auto-detects type)
 fling send --text "hello" --all # send literal text
 fling status                    # check device reachability
 fling config show               # view configuration
 fling config set --hostname "X" # set PC name sent to devices
+fling install                   # add to Windows "Send to" menu
+fling uninstall                 # remove from "Send to" menu
 fling --help                    # full help for any command
 ```
+
+### Send to menu
+
+Run `fling install` to add Fling to the Windows "Send to" context menu. Then
+right-click any file in Explorer and choose **Send to > Fling** to send it.
+
+- Image files (`.png`, `.jpg`, `.bmp`, `.gif`) are sent as images.
+- Text files (`.txt`, `.json`, `.xml`, etc.) send their contents.
+- Binary files send the file path as text.
+
+Run `fling uninstall` to remove it.
 
 ### Auto-discovery
 
