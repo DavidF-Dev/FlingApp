@@ -48,6 +48,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.davidfdev.fling.BuildConfig
+import dev.davidfdev.fling.FlingService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -204,6 +205,22 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
+                text = "Notifications",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            Text(
+                text = "Fling shows a persistent notification while running. To hide it, disable the notification channel in system settings.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(onClick = { openNotificationChannelSettings(context) }) {
+                Text("Notification settings")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
                 text = "About",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
@@ -269,6 +286,18 @@ private fun SourceLink(context: Context) {
 private fun isBatteryOptimizationDisabled(context: Context): Boolean {
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun openNotificationChannelSettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                putExtra(Settings.EXTRA_CHANNEL_ID, FlingService.CHANNEL_ID)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }
 }
 
 private fun openBatterySettings(context: Context) {
