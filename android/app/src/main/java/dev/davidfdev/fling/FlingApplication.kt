@@ -47,6 +47,10 @@ class FlingApplication : Application() {
         }
     }
 
+    fun setServiceRunningImmediate(running: Boolean) {
+        _serviceRunning.value = running
+    }
+
     fun setServiceRunning(running: Boolean) {
         _serviceRunning.value = running
         appScope.launch {

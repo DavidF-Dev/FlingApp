@@ -75,18 +75,21 @@ class FlingService : Service() {
     }
 
     override fun onDestroy() {
-        app.setServiceRunning(false)
         wifiGateJob?.cancel()
         wifiGateJob = null
         discoveryListener?.stop()
         discoveryListener = null
-        server?.stop(1000, 2000)
+        val serverToStop = server
         server = null
         pairingApprover?.destroy()
         pairingApprover = null
         contentNotifier?.destroy()
         contentNotifier = null
         scope.cancel()
+        Thread {
+            serverToStop?.stop(1000, 2000)
+            app.setServiceRunning(false)
+        }.start()
         super.onDestroy()
     }
 

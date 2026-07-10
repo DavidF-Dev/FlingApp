@@ -41,6 +41,17 @@
                 android:value="Hosts a local-network HTTP server to receive clipboard content from paired PCs. No cloud communication or data collection." />
         </service>
 
+        <service
+            android:name=".FlingTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="Fling"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
