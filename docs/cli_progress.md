@@ -436,6 +436,71 @@ End-to-end Greenshot testing deferred to after Phase 9 (single-file publish), wh
 
 ---
 
+## Phase 13: Send File & Explorer Integration
+
+**Goal:** Users can right-click a file in File Explorer and send it via Fling. The CLI gains a `--file` option and `install`/`uninstall` commands for registering in the Windows "Send to" menu.
+
+**Context:** Currently, sending a file requires `--image <path>` (images only) or `--text "content"` (literal strings). There's no way to send a text file's contents, and no Explorer integration. This phase adds a general-purpose `--file` flag that auto-detects content type, and a "Send to" shortcut so users can right-click any file and Fling it.
+
+> **Decisions:**
+>
+> - **"Send to" menu (not shell extension).** A shortcut in `%APPDATA%\Microsoft\Windows\SendTo\` is simpler than registry-based context menu entries. No elevation required, no COM shell extension, works on Windows 10 and 11 in the top-level context menu. Same approach as LocalSend.
+> - **File type detection via null-byte heuristic.** Read the first ~8KB of the file. Known image extensions (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`) are sent as images (converted to PNG, same as `--image`). Files with no null bytes in the sample are sent as text (UTF-8 content). All other files send the file path as plain text. This avoids maintaining an extension allowlist for text formats.
+> - **`--file` coexists with `--image` and `--text`.** `--image` is kept for backward compatibility (Greenshot configs). `--file` with an image does the same thing.
+> - **Exe resolution for the shortcut:**
+>   - If self is `flingw.exe`: register with `flingw.exe`.
+>   - If self is `fling.exe` and `flingw.exe` exists at the same path: register with `flingw.exe`.
+>   - If self is `fling.exe` and no `flingw.exe` exists: register with `fling.exe`.
+>   - This prefers the GUI-subsystem variant (no console flash) but degrades gracefully during development.
+> - **`fling uninstall` is exe-agnostic.** It deletes the shortcut file regardless of which exe was registered.
+
+### Tasks
+
+- [ ] Add `--file <path>` option to `fling send`:
+  - Mutually exclusive with `--clipboard`, `--image`, and `--text` (same validation as existing sources).
+  - Detect file type:
+    1. Known image extension (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`) → load as PNG (same path as `--image`).
+    2. Read first ~8KB. No null bytes → read entire file as UTF-8 text, send as `text/plain`.
+    3. Otherwise → send the file's full path as `text/plain`.
+  - Handle missing file, unreadable file, and empty file with clear error messages.
+- [ ] Add `fling install` command:
+  - Create a `Fling.lnk` shortcut in `%APPDATA%\Microsoft\Windows\SendTo\`.
+  - Target: resolved exe path (see exe resolution logic above) with args `send --file "%1" --all`.
+  - Resolve the exe: check if `flingw.exe` exists next to the running exe; prefer it over `fling.exe`.
+  - If the shortcut already exists, overwrite it (update path if exe moved).
+  - Print what was registered: exe path and shortcut location.
+- [ ] Add `fling uninstall` command:
+  - Delete `Fling.lnk` from `%APPDATA%\Microsoft\Windows\SendTo\`.
+  - No-op with a message if the shortcut doesn't exist.
+- [ ] Update `cli/README.md`:
+  - Add `fling install` and `fling uninstall` to the usage block.
+  - Add a "Send to" integration section explaining the right-click workflow.
+  - Add `--file` to the usage examples.
+- [ ] Update `cli/packaging/README.txt`:
+  - Add a "Send to integration" section with `fling install` instructions.
+  - Add `--file` to the usage examples.
+
+### Unit Tests
+
+- [ ] File type detection: `.png` → image, `.jpg` → image, `.txt` → text content, `.json` → text content, binary file → file path as text, empty file → error.
+- [ ] Null-byte heuristic: file with null bytes detected as binary, file without null bytes detected as text.
+- [ ] Exe resolution: `flingw.exe` preferred when present, falls back to `fling.exe` when absent.
+- [ ] SendTo path construction: shortcut targets the correct exe with correct arguments.
+
+### Verification
+
+1. `fling send --file notes.txt --all` → sends file contents as text.
+2. `fling send --file photo.jpg --all` → sends image (converted to PNG).
+3. `fling send --file app.exe --all` → sends file path as text.
+4. `fling send --file missing.txt` → clear error message.
+5. `fling install` → creates shortcut, prints confirmation.
+6. Right-click a text file in Explorer → Send to → Fling → content arrives on phone.
+7. Right-click an image in Explorer → Send to → Fling → image arrives on phone.
+8. `fling uninstall` → removes shortcut.
+9. `fling uninstall` when not installed → no-op message.
+
+---
+
 ## Appendix: Testing Strategy
 
 ### Unit Test Setup
