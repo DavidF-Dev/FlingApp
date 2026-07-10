@@ -16,12 +16,14 @@ import kotlinx.coroutines.launch
 
 class FlingTileService : TileService() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var scope: CoroutineScope? = null
 
     override fun onStartListening() {
         super.onStartListening()
         val app = application as FlingApplication
-        scope.launch {
+        val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        scope = newScope
+        newScope.launch {
             app.serviceRunning.collect { running ->
                 qsTile?.let { tile ->
                     tile.state = if (running) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
@@ -32,7 +34,8 @@ class FlingTileService : TileService() {
     }
 
     override fun onStopListening() {
-        scope.cancel()
+        scope?.cancel()
+        scope = null
         super.onStopListening()
     }
 
@@ -40,7 +43,10 @@ class FlingTileService : TileService() {
         super.onClick()
         val app = application as FlingApplication
 
-        if (app.serviceRunning.value) {
+        val running = app.serviceRunning.value
+        app.setServiceRunningImmediate(!running)
+
+        if (running) {
             stopService(Intent(this, FlingService::class.java))
         } else {
             if (needsNotificationPermission()) {
