@@ -63,7 +63,7 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ---
 
-## Phase 2: Android Release Signing
+## Phase 2: Android Release Signing ✅
 
 **Goal:** The Android app can produce a release-signed APK suitable for distribution.
 
@@ -71,17 +71,17 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ### Prerequisites
 
-- [ ] Generate a release keystore (`.jks` file). Store securely outside the repo.
-- [ ] Create `android/keystore.properties` (gitignored) with keystore path, alias, and passwords.
+- [x] Generate a release keystore (`.jks` file). Store securely outside the repo.
+- [x] Create `android/keystore.properties` (gitignored) with keystore path, alias, and passwords.
 
 ### Tasks
 
-- [ ] Add `signingConfigs` block to `android/app/build.gradle.kts`:
+- [x] Add `signingConfigs` block to `android/app/build.gradle.kts`:
   - Read keystore path, alias, store password, and key password from `keystore.properties`.
   - Apply the signing config to the `release` build type.
-- [ ] Add `keystore.properties` to `android/.gitignore`.
-- [ ] Verify `./gradlew assembleRelease` produces a signed APK.
-- [ ] Record the signing certificate's SHA-256 fingerprint for use in release notes.
+- [x] Add `keystore.properties` to `android/.gitignore`.
+- [x] Verify `./gradlew assembleRelease` produces a signed APK.
+- [x] Record the signing certificate's SHA-256 fingerprint for use in release notes.
 
 ### Design decisions
 
@@ -96,7 +96,7 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ---
 
-## Phase 3: Android Release Script
+## Phase 3: Android Release Script ✅
 
 **Goal:** `android/scripts/release.ps1` builds a signed APK and creates a GitHub Release.
 
@@ -104,13 +104,13 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ### Prerequisites
 
-- [ ] Phase 2 complete (release signing works).
-- [ ] Create `android/CHANGELOG.md` using Keep a Changelog format.
-- [ ] Populate the `## [1.0.0]` section.
+- [x] Phase 2 complete (release signing works).
+- [x] Create `android/CHANGELOG.md` using Keep a Changelog format.
+- [x] Populate the `## [1.0.0]` section.
 
 ### Tasks
 
-- [ ] Create `android/scripts/release.ps1`:
+- [x] Create `android/scripts/release.ps1`:
   1. Read version from `android/app/build.gradle.kts` (`versionName`).
   2. Compute tag: `android/v$version`.
   3. Guard rails:
@@ -128,7 +128,7 @@ This is a **live document** tracking the phased implementation of the Fling rele
   10. Print summary: tag, asset filename, size, release body.
   11. Prompt for confirmation (unless `-Force`).
   12. Stage a version-stamped copy (`fling-<version>.apk`) and create the GitHub Release via `gh release create`.
-- [ ] Title format: `Fling Android $tag` (e.g., "Fling Android v1.0.0").
+- [x] Title format: `Fling Android v$version` (e.g., "Fling Android v1.0.0").
 
 ### Design decisions
 
@@ -155,7 +155,7 @@ This is a **live document** tracking the phased implementation of the Fling rele
   1. Runs `git tag -l "<component>/v*" --sort=-v:refname` to find the latest tag for a given component prefix.
   2. Formats the cross-reference: `Compatible with: [cli/v0.1.0](https://github.com/DavidF-Dev/FlingApp/releases/tag/cli/v0.1.0)`.
   3. If no tag exists for the other component (first release), omits the line gracefully.
-- [ ] Include the cross-reference in the release body, after the changelog notes and SHA-256.
+- [x] Include the cross-reference in the release body, after the changelog notes and SHA-256.
 
 ### Design decisions
 
