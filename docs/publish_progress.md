@@ -18,7 +18,7 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ---
 
-## Phase 1: CLI Release Script ✅ (partially — `publish.ps1` exists)
+## Phase 1: CLI Release Script ✅
 
 **Goal:** `cli/scripts/release.ps1` creates a GitHub Release with the zip attached.
 
@@ -26,12 +26,12 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ### Prerequisites
 
-- [ ] Create `cli/CHANGELOG.md` using Keep a Changelog format.
-- [ ] Populate the `## [0.1.0]` section with changes from Phases 1–10.
+- [x] Create `cli/CHANGELOG.md` using Keep a Changelog format.
+- [x] Populate the `## [1.0.0]` section.
 
 ### Tasks
 
-- [ ] Create `cli/scripts/release.ps1`:
+- [x] Create `cli/scripts/release.ps1`:
   1. Read version from `cli/src/Fling/Fling.csproj` (`<Version>` tag).
   2. Compute tag: `cli/v$version`.
   3. Guard rails:
@@ -46,7 +46,7 @@ This is a **live document** tracking the phased implementation of the Fling rele
   8. Print summary: tag, asset filename, size, SHA-256, release body.
   9. Prompt for confirmation (unless `-Force`).
   10. Create the GitHub Release via `gh release create` with the zip attached.
-- [ ] Title format: `Fling CLI $tag` (e.g., "Fling CLI v0.1.0").
+- [x] Title format: `Fling CLI v$version` (e.g., "Fling CLI v1.0.0").
 
 ### Design decisions
 
@@ -143,15 +143,15 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ---
 
-## Phase 4: Cross-Reference Automation
+## Phase 4: Cross-Reference Automation ✅ (folded into Phases 1 and 3)
 
 **Goal:** Both release scripts automatically include "Compatible with" links to the latest release of the other component.
 
-**Context:** This is already described in Phases 1 and 3 as a sub-task, but this phase ensures the logic is consistent and handles edge cases.
+**Context:** Cross-referencing is implemented inline in each release script rather than as a shared helper. The CLI release script detects the latest `android/v*` tag; the Android script will detect the latest `cli/v*` tag.
 
 ### Tasks
 
-- [ ] Implement a shared helper function (or inline in each script) that:
+- [x] Implement cross-reference logic inline in each release script:
   1. Runs `git tag -l "<component>/v*" --sort=-v:refname` to find the latest tag for a given component prefix.
   2. Formats the cross-reference: `Compatible with: [cli/v0.1.0](https://github.com/DavidF-Dev/FlingApp/releases/tag/cli/v0.1.0)`.
   3. If no tag exists for the other component (first release), omits the line gracefully.
