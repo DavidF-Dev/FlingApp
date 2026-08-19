@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.davidfdev.fling.FlingApplication
+import dev.davidfdev.fling.data.ClipImageCache
 import dev.davidfdev.fling.data.ClipItem
 import dev.davidfdev.fling.data.DeviceNameGenerator
 import dev.davidfdev.fling.data.PairedDevice
@@ -39,10 +40,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeClip(item: ClipItem) {
+        ClipImageCache.delete(app, item)
         app.clipboardBuffer.remove(item)
     }
 
     fun clearClips() {
+        ClipImageCache.clear(app)
         app.clipboardBuffer.clear()
     }
 

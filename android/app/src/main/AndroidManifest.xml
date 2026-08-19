@@ -32,6 +32,14 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ClipActionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Fling.Invisible" />
+
         <service
             android:name=".FlingService"
             android:exported="false"

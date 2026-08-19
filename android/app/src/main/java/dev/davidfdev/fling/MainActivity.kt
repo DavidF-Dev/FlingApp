@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.davidfdev.fling.data.ClipImageCache
 import dev.davidfdev.fling.data.ClipItem
 import dev.davidfdev.fling.data.PairedDevice
 import dev.davidfdev.fling.data.Settings
@@ -201,7 +202,7 @@ private fun MainScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
                     )
                 }
             } else {
-                items(clipItems, key = { it.receivedAt }) { clipItem ->
+                items(clipItems, key = { it.id }) { clipItem ->
                     ClipItemRow(
                         clipItem = clipItem,
                         onRemove = { viewModel.removeClip(clipItem) },
@@ -419,7 +420,7 @@ private fun copyClipToClipboard(context: android.content.Context, clipItem: Clip
             clipboardManager.setPrimaryClip(ClipData.newPlainText("Fling", text))
         }
         clipItem.type == "image/png" -> {
-            val uri = writeImageToCache(context, clipItem)
+            val uri = ClipImageCache.write(context, clipItem)
             clipboardManager.setPrimaryClip(ClipData.newUri(context.contentResolver, "Fling", uri))
         }
     }
@@ -435,24 +436,13 @@ private fun shareClip(context: android.content.Context, clipItem: ClipItem) {
             }
             clipItem.type == "image/png" -> {
                 type = "image/png"
-                val uri = writeImageToCache(context, clipItem)
+                val uri = ClipImageCache.write(context, clipItem)
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         }
     }
     context.startActivity(Intent.createChooser(intent, null))
-}
-
-private fun writeImageToCache(context: android.content.Context, clipItem: ClipItem): android.net.Uri {
-    val dir = java.io.File(context.cacheDir, "clip_images").apply { mkdirs() }
-    val file = java.io.File(dir, "clip_${clipItem.receivedAt}.png")
-    file.writeBytes(clipItem.data)
-    return androidx.core.content.FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.fileprovider",
-        file,
-    )
 }
 
 private fun formatDate(timestamp: Long): String {

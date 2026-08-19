@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import dev.davidfdev.fling.content.NotificationContentNotifier
+import dev.davidfdev.fling.data.ClipImageCache
 import dev.davidfdev.fling.pairing.NotificationPairingApprover
 import dev.davidfdev.fling.server.RateLimiter
 import dev.davidfdev.fling.server.configureFling
@@ -31,9 +32,9 @@ class FlingService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
     private var pairingApprover: NotificationPairingApprover? = null
-    private var contentNotifier: NotificationContentNotifier? = null
     private var discoveryListener: DiscoveryListener? = null
     private var wifiGateJob: Job? = null
+    private var started = false
 
     private val app get() = application as FlingApplication
 
@@ -42,15 +43,19 @@ class FlingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
         startInForeground(buildNotification())
-        startServer()
-        startDiscovery()
+        if (!started) {
+            started = true
+            ClipImageCache.clear(this)
+            startServer()
+            startDiscovery()
+        }
         app.setServiceRunning(true)
         return START_STICKY
     }
 
     private fun startServer() {
         val approver = NotificationPairingApprover(this).also { pairingApprover = it }
-        val notifier = NotificationContentNotifier(this).also { contentNotifier = it }
+        val notifier = NotificationContentNotifier(this)
 
         scope.launch {
             try {
@@ -75,6 +80,7 @@ class FlingService : Service() {
     }
 
     override fun onDestroy() {
+        started = false
         wifiGateJob?.cancel()
         wifiGateJob = null
         discoveryListener?.stop()
@@ -83,8 +89,6 @@ class FlingService : Service() {
         server = null
         pairingApprover?.destroy()
         pairingApprover = null
-        contentNotifier?.destroy()
-        contentNotifier = null
         scope.cancel()
         Thread {
             serverToStop?.stop(1000, 2000)

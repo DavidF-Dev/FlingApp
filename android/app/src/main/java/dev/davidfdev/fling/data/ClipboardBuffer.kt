@@ -21,7 +21,7 @@ class ClipboardBuffer(private val capacity: Int = 10) {
     }
 
     fun remove(item: ClipItem) = synchronized(lock) {
-        items.removeAll { it.receivedAt == item.receivedAt }
+        items.removeAll { it.id == item.id }
         _flow.value = items.toList()
     }
 

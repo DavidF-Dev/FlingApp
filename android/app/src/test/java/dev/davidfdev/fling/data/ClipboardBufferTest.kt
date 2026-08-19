@@ -40,6 +40,20 @@ class ClipboardBufferTest {
     }
 
     @Test
+    fun removesOnlyTheGivenItem() {
+        val buffer = ClipboardBuffer()
+        val first = ClipItem("text/plain", "a".toByteArray(), 1000L, 1000L)
+        val second = ClipItem("text/plain", "b".toByteArray(), 1000L, 1000L)
+        buffer.add(first)
+        buffer.add(second)
+
+        buffer.remove(first)
+
+        assertEquals(1, buffer.size())
+        assertEquals("b", String(buffer.getAll().first().data))
+    }
+
+    @Test
     fun threadSafety() {
         val buffer = ClipboardBuffer(capacity = 50)
         val threads = 10

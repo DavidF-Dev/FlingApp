@@ -2,4 +2,9 @@
 <resources>
 
     <style name="Theme.Fling" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.Fling.Invisible" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>
