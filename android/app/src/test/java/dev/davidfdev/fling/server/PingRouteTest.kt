@@ -1,5 +1,6 @@
 package dev.davidfdev.fling.server
 
+import dev.davidfdev.fling.BuildConfig
 import dev.davidfdev.fling.data.ClipboardBuffer
 import dev.davidfdev.fling.data.DeviceRepository
 import dev.davidfdev.fling.data.PairedDevice
@@ -42,7 +43,7 @@ class PingRouteTest {
         val body = Json.decodeFromString<PingResponse>(response.bodyAsText())
         assertEquals("ok", body.status)
         assertEquals("Test Device", body.name)
-        assertEquals("1.0.0", body.version)
+        assertEquals(BuildConfig.VERSION_NAME, body.version)
     }
 
     @Test

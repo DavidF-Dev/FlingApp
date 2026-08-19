@@ -1,5 +1,6 @@
 package dev.davidfdev.fling.server
 
+import dev.davidfdev.fling.BuildConfig
 import dev.davidfdev.fling.content.ContentNotifier
 import dev.davidfdev.fling.data.ClipItem
 import dev.davidfdev.fling.data.ClipboardBuffer
@@ -108,7 +109,13 @@ fun Application.configureFling(
         authenticated(deviceRepository) {
             rateLimited(rateLimiter ?: RateLimiter()) {
                 get("/ping") {
-                    call.respond(PingResponse(status = "ok", name = deviceNameProvider(), version = "1.0.0"))
+                    call.respond(
+                        PingResponse(
+                            status = "ok",
+                            name = deviceNameProvider(),
+                            version = BuildConfig.VERSION_NAME,
+                        ),
+                    )
                 }
 
                 post("/clip") {
