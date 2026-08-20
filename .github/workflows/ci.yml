@@ -38,6 +38,9 @@ jobs:
       - name: Build tray app
         run: dotnet build gui/Fling.Gui.slnx -c Release -p:TreatWarningsAsErrors=true --nologo
 
+      - name: Test tray app
+        run: dotnet test gui/Fling.Gui.slnx -c Release --no-build --nologo
+
   android:
     name: Android (build & test)
     runs-on: ubuntu-latest

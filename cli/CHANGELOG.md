@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Discovery and pairing failures now say to check for the phone's "Fling is running" notification, rather than that the app is running. The service is what answers, and it can be off while the app is open.
+
+### Fixed
+
+- Cancelling a pairing is no longer reported as a timeout.
+
 ## [1.0.1] - 2026-08-20
 
 ### Fixed

@@ -258,6 +258,7 @@ Stages exactly one item from one of four sources, previews it, and sends it.
 
 ### Device Manager
 
+- Both discovery and reachability require the Fling **service** to be running on the phone — it owns the UDP discovery listener and the HTTP server. `serviceEnabled` defaults to off and is turned on from the app, the quick settings tile, or automatically at boot once enabled. Its persistent "Fling is running" notification is the signal a user can check, and the window says so wherever a device fails to appear or answer.
 - Paired devices with live reachability, polled only while the window is open.
 - Discovery re-broadcasts on an interval while the window is open, so phones that were asleep appear without reopening.
 - Pairing is asynchronous — `POST /pair` blocks on the user tapping Accept. States: discovering → pairing (cancellable) → accepted / rejected / timed out.

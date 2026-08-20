@@ -2,6 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/Fling.Gui/Fling.Gui.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Fling.Gui.Tests/Fling.Gui.Tests.csproj" />
+  </Folder>
   <Folder Name="/shared/">
     <Project Path="../cli/src/Fling.Core/Fling.Core.csproj" />
     <Project Path="../cli/src/Fling.Windows/Fling.Windows.csproj" />

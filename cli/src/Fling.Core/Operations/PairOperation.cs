@@ -10,6 +10,7 @@ public enum PairStatus
     Conflict,
     TimedOut,
     ConnectionFailed,
+    Cancelled,
 }
 
 public sealed record PairOutcome(PairStatus Status, string? DeviceName = null, string? Error = null);
@@ -46,10 +47,16 @@ public sealed class PairOperation(ConfigStore store, Func<FlingHttpClient>? clie
             using var client = _clientFactory();
             response = await client.PairAsync(host, port, pcName, apiKey, ct);
         }
+        // The caller abandoning the wait and the device never answering both surface as a
+        // cancelled task; only the token says which happened.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return new PairOutcome(PairStatus.Cancelled, Error: "Pairing cancelled.");
+        }
         catch (TaskCanceledException)
         {
             return new PairOutcome(PairStatus.TimedOut,
-                Error: "Pairing timed out. Make sure the Fling app is running on the device.");
+                Error: "Pairing timed out. Check that Fling is running on the device — look for its \"Fling is running\" notification.");
         }
         catch (HttpRequestException ex)
         {

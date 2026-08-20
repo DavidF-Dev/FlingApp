@@ -8,7 +8,7 @@ namespace Fling.Net;
 /// Discovers Fling devices on the local network via UDP broadcast.
 /// Sends "FLING?" to the broadcast address; devices respond with "FLING:&lt;port&gt;:&lt;name&gt;".
 /// </summary>
-public sealed class UdpDiscovery
+public sealed class UdpDiscovery : IDeviceDiscovery
 {
     public const int DiscoveryPort = 7290;
     private static readonly byte[] DiscoveryMessage = Encoding.UTF8.GetBytes("FLING?");

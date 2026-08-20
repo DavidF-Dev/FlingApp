@@ -1,12 +1,149 @@
 <Window x:Class="Fling.Gui.Windows.DeviceManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Fling.Gui.Windows"
         Title="Device manager"
-        Width="620" Height="460"
+        Width="620" Height="520" MinWidth="460" MinHeight="380"
         WindowStartupLocation="CenterScreen">
-    <Grid Margin="24">
-        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center"
-                   TextAlignment="Center" TextWrapping="Wrap" Opacity="0.6"
-                   Text="Device list and pairing arrive in Phase 2." />
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+
+        <Style x:Key="SectionHeading" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="Subtle" TargetType="TextBlock">
+            <Setter Property="Opacity" Value="0.6" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Paired devices -->
+        <DockPanel Grid.Row="0">
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionHeading}" Text="Paired devices" />
+
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Subtle}" Margin="0,0,0,8"
+                       Visibility="{Binding HasPairedDevices, Converter={StaticResource InverseBoolToVisibility}}"
+                       Text="No devices paired yet. Start Fling on your phone, then pick it from the list below." />
+
+            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Subtle}" Margin="0,8,0,0"
+                       Visibility="{Binding HasUnreachableDevice, Converter={StaticResource BoolToVisibility}}"
+                       Text="A device is unreachable when Fling isn't running on it, or it's on a different network." />
+
+            <ListBox x:Name="PairedList" ItemsSource="{Binding Paired}" BorderThickness="1"
+                     HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="4,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                <TextBlock Opacity="0.6">
+                                    <Run Text="{Binding Address, Mode=OneWay}" />
+                                    <Run Text=" · " />
+                                    <Run Text="{Binding StatusText, Mode=OneWay}" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <Button Grid.Column="1" Content="Remove" Padding="10,3" VerticalAlignment="Center"
+                                    Click="OnRemoveClicked" Tag="{Binding}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <Separator Grid.Row="1" Margin="0,14" />
+
+        <!-- Discovered devices -->
+        <DockPanel Grid.Row="2">
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                <TextBlock Style="{StaticResource SectionHeading}" Text="Found on this network" />
+                <TextBlock x:Name="DiscoveryIndicator" HorizontalAlignment="Right" Opacity="0.6"
+                           Text="Searching…"
+                           Visibility="{Binding IsDiscovering, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+
+            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Subtle}" Margin="0,8,0,0"
+                       Text="Not showing your phone? Fling has to be running on it — look for the &quot;Fling is running&quot; notification — and both devices must be on the same Wi-Fi. Otherwise, enter its address below." />
+
+            <ListBox x:Name="DiscoveredList" ItemsSource="{Binding Discovered}" BorderThickness="1"
+                     HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="4,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                <TextBlock Opacity="0.6">
+                                    <Run Text="{Binding Address, Mode=OneWay}" />
+                                    <Run Text=" · " />
+                                    <Run Text="{Binding StatusText, Mode=OneWay}" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <Button Grid.Column="1" Content="Pair" Padding="14,3" VerticalAlignment="Center"
+                                    Click="OnPairClicked" Tag="{Binding}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <!-- Manual entry -->
+        <Grid Grid.Row="3" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="Address" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Column="1" x:Name="ManualEndpoint" VerticalContentAlignment="Center" Padding="4,3"
+                     KeyDown="OnManualEndpointKeyDown" />
+            <Button Grid.Column="2" Content="Pair" Padding="14,3" Margin="8,0,0,0"
+                    Click="OnManualPairClicked" />
+        </Grid>
+
+        <!-- Pairing overlay -->
+        <Border Grid.Row="0" Grid.RowSpan="4" x:Name="PairingOverlay" Visibility="Collapsed"
+                Background="#CC000000">
+            <Border Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
+                    Padding="24" CornerRadius="6" MaxWidth="380"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel>
+                    <TextBlock x:Name="PairingTitle" FontWeight="SemiBold" FontSize="15"
+                               TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <TextBlock x:Name="PairingDetail" TextWrapping="Wrap" Opacity="0.75" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                        <Button x:Name="PairingCancel" Content="Cancel" Padding="16,4"
+                                Click="OnCancelPairingClicked" />
+                        <Button x:Name="PairingDismiss" Content="Close" Padding="16,4" Visibility="Collapsed"
+                                Click="OnDismissPairingClicked" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </Window>

@@ -204,7 +204,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ---
 
-## Phase 2: Device Manager Window
+## Phase 2: Device Manager Window ✅
 
 **Goal:** View paired devices with live reachability, and pair new ones.
 
@@ -219,28 +219,37 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ### Tasks
 
-- [ ] `DeviceManagerWindow` with two sections: paired devices, and devices found on the network.
-- [ ] Paired list rows: name, `host:port`, reachability indicator, last-seen, Remove.
-- [ ] Reachability polling on an interval while the window is open, via Core's `ReachabilityProbe`. Cancelled on close.
-- [ ] Repeating discovery loop while the window is open; merge results and exclude already-paired devices.
-- [ ] Pair flow: click a discovered device → confirm PC name → "Waiting for approval on <device>…" with Cancel → success, rejection, or timeout, each with a distinct message.
-- [ ] Manual pairing fallback: enter `ip:port` directly, for when broadcast is blocked by the network.
-- [ ] Remove with a confirmation dialog stating that re-pairing is required and the phone entry must be cleared separately.
-- [ ] Empty state when no devices are paired: explain what pairing is and point at the phone app.
+- [x] `DeviceManagerWindow` with two sections: paired devices, and devices found on the network.
+- [x] Paired list rows: name, `host:port`, reachability indicator, last-seen, Remove.
+- [x] Reachability polling on an interval while the window is open, via Core's `ReachabilityProbe`. Cancelled on close.
+- [x] Repeating discovery loop while the window is open; merge results and exclude already-paired devices.
+- [x] Pair flow: click a discovered device → confirm PC name → "Waiting for approval on <device>…" with Cancel → success, rejection, or timeout, each with a distinct message.
+- [x] Manual pairing fallback: enter `ip:port` directly, for when broadcast is blocked by the network.
+- [x] Remove with a confirmation dialog stating that re-pairing is required and the phone entry must be cleared separately.
+- [x] Empty state when no devices are paired: explain what pairing is and point at the phone app.
 
 ### Unit Tests
 
-- [ ] Discovery result merging: the same device seen across successive broadcasts appears once; a device that stops responding is marked stale rather than vanishing mid-interaction.
-- [ ] Already-paired devices are excluded from the discovered list.
-- [ ] Pairing view-model transitions cover accepted, rejected, timed out, and user-cancelled.
+- [x] Discovery result merging: the same device seen across successive broadcasts appears once; a device that stops responding is marked stale rather than vanishing mid-interaction.
+- [x] Already-paired devices are excluded from the discovered list.
+- [x] Pairing view-model transitions cover accepted, rejected, timed out, and user-cancelled.
 
 ### Verification
 
-1. A paired, powered-on phone shows as reachable; airplane mode flips it to unreachable within one poll interval.
-2. Pairing a fresh device end-to-end: discovered → tap Accept on phone → appears in the paired list.
-3. Rejecting on the phone shows a rejection message and stores nothing.
-4. Closing the window mid-pair cancels cleanly with no orphaned request or config write.
-5. Removing a device is reflected in `fling config show`.
+1. ⏳ Needs a phone — reachable when powered on, flipping to unreachable within one poll interval in airplane mode.
+2. ⏳ Needs a phone — pairing end-to-end from the discovered list.
+3. ⏳ Needs a phone — declining on the device. Covered against a fake at the view-model level.
+4. ✅ Closing cancels the lifetime token, which the pairing operation is linked to; `PairStatus.Cancelled` is now distinct from `TimedOut`, and nothing is written on either. Covered by test.
+5. ⏳ Needs a manual cross-check against `fling config show`. Removal through the store is covered by test.
+
+21 view-model tests cover the state machine and list behaviour against fakes; 9 more cover `DiscoveryTracker` on the Core side. What remains is what only a real phone and a real click can exercise.
+
+### Findings
+
+- **`PairOperation` reported user cancellation as a timeout.** Both surface as a cancelled task, and only the token distinguishes them — so closing the window mid-pair would have told the user their phone never answered. Added `PairStatus.Cancelled`, distinguished by an exception filter on `ct.IsCancellationRequested`.
+- **Added `IDeviceDiscovery`.** `UdpDiscovery` broadcasts on a real socket, so the view-model could not be tested without it. The interface is also what a future Bonjour or manual-only discovery would slot into.
+- **Paired devices now self-heal their address from discovery.** Without it a phone that changed IP shows "Not reachable" with no explanation on screen, because paired devices are filtered out of the discovered list. The CLI already does this through `DeviceResolver`; the tray app would otherwise have been worse.
+- **The desktop SDK replaces the implicit-using set rather than extending it.** Enabling `UseWindowsForms` on the test project dropped `System.IO` and `System.Net.Http` and added `System.Windows.Forms`. The test project sets no UI flag — the framework reference arrives transitively through the project reference.
 
 ---
 

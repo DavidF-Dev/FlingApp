@@ -60,7 +60,7 @@ public static class PairCommand
 
                 if (found.Count == 0)
                 {
-                    Console.Error.WriteLine("No devices found. Make sure the Fling app is running on your phone and both devices are on the same Wi-Fi network.");
+                    Console.Error.WriteLine("No devices found. Check that Fling is running on your phone — look for its \"Fling is running\" notification — and that both devices are on the same Wi-Fi network.");
                     return 2;
                 }
 
@@ -123,6 +123,9 @@ public static class PairCommand
                 case PairStatus.ConnectionFailed:
                     Console.Error.WriteLine(outcome.Error);
                     return 2;
+
+                case PairStatus.Cancelled:
+                    return 1;
 
                 default:
                     Console.Error.WriteLine(outcome.Error);
