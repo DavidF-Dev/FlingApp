@@ -26,24 +26,60 @@ Phase 0 is a prerequisite refactor of existing CLI code with no user-visible cha
 
 Phase 0 splits the current single `Fling` project into four:
 
-| Project | Target | Contents |
-|---------|--------|----------|
-| `Fling.Core` | `net8.0` | Config, protocol, content encoding, discovery, send orchestration. No UI, no platform APIs. |
-| `Fling.Windows` | `net8.0-windows` | Windows-specific implementations: clipboard, image encoding, Explorer "Send to", startup registration. |
-| `Fling` | `net8.0-windows` | Existing CLI. References Core + Windows. |
-| `Fling.Gui` | `net8.0-windows` | WPF tray app. References Core + Windows. |
+| Project | Target | UI framework | Contents |
+|---------|--------|--------------|----------|
+| `Fling.Core` | `net8.0` | none | Config, protocol, content encoding, discovery, send orchestration. No UI, no platform APIs. |
+| `Fling.Windows` | `net8.0-windows` | **none** | Windows implementations behind Core's interfaces: clipboard (Win32 P/Invoke), image encoding, Explorer "Send to", startup registration. |
+| `Fling` | `net8.0-windows` | **none** | CLI. References Core + Windows. |
+| `Fling.Gui` | `net8.0-windows` | WPF + WinForms | Tray app. References Core + Windows. |
 
-Four projects is more ceremony than a solo project usually wants, but each has one obvious job, and the `Core` / `Windows` split is what keeps a future non-Windows port from being a rewrite. If that port is ruled out permanently, `Fling.Windows` can be folded into `Fling.Core`.
+Four projects is more ceremony than a solo project usually wants, but each has one obvious job, and the `Core` / `Windows` split is what keeps a future non-Windows port from being a rewrite.
+
+**No project except `Fling.Gui` may set `UseWindowsForms` or `UseWPF`.** These flags add a `FrameworkReference` to `Microsoft.WindowsDesktop.App`, and a self-contained publish ships that runtime pack whole — including WPF — regardless of what is actually called. They also make the project untrimmable. A single `UseWindowsForms=true` anywhere in the CLI's reference graph costs it roughly 58 MB and its ability to trim. See Phase 0.
+
+The `-windows` TFM itself is free: it enables Windows-only BCL surface (registry, platform-guard analyzers) without pulling the desktop runtime pack. Measured identical to plain `net8.0`.
 
 ---
 
-## Phase 0: Extract `Fling.Core` and `Fling.Windows`
+## Phase 0: Extract `Fling.Core`, Slim the CLI
 
-**Goal:** The CLI behaves identically, but its logic lives in libraries a second front-end can consume.
+**Goal:** The CLI behaves identically, but its logic lives in libraries a second front-end can consume — and it stops shipping a desktop UI framework it never calls.
+
+### The size problem this phase fixes
+
+The CLI currently sets `UseWindowsForms=true` for exactly two APIs: `System.Windows.Forms.Clipboard` (seven call sites in one file) and `System.Drawing.Image` (two lines). That flag adds the `Microsoft.WindowsDesktop.App` framework reference, and a self-contained publish ships the pack whole. Measured from the unpacked publish output:
+
+| Shipping in `fling.exe` | Size | Called by the CLI |
+|---|---|---|
+| `PresentationFramework.dll` | 16 MB | no — WPF |
+| `PresentationCore.dll` | 8.2 MB | no — WPF |
+| `D3DCompiler_47_cor3.dll` | 4.6 MB | no — WPF rendering |
+| `WindowsBase.dll` | 2.2 MB | no — WPF |
+| `System.Windows.Forms.Design.dll` | 5.4 MB | no — designer |
+| `System.Windows.Forms.dll` | 13 MB | one class |
+| `System.Windows.Forms.Primitives.dll` | 2.9 MB | transitively |
+
+WinForms and WPF are also not trim-compatible, so `PublishTrimmed` is unavailable while either is referenced. Removing the dependency unlocks both wins at once:
+
+| Configuration | Size | Cold start |
+|---|---|---|
+| Current | 69.0 MB | 1445 ms |
+| No WinForms, untrimmed | 33.7 MB | — |
+| No WinForms, trimmed | **10.5 MB** | **759 ms** |
+
+Cold start matters independently of size. Single-file plus compression self-extracts to `%LOCALAPPDATA%\Temp\.net\`, and that cost recurs after every version update and any temp cleanup. The CLI's primary callers — Greenshot's External Command Plugin and Explorer "Send to" — are exactly the paths where a 1.4-second stall reads as a failed send.
+
+This work belongs in Phase 0 rather than a later pass because both offending files are being relocated behind interfaces here anyway. Rewriting the clipboard reader while it moves is far cheaper than moving it twice.
 
 ### Design decisions
 
 - **`Fling.Core` targets `net8.0`, not `net8.0-windows`.** This is the whole point of the split — the compiler enforces that no Win32, COM, WinForms, or `System.Drawing` dependency leaks into shared logic.
+- **`Fling.Windows` sets no UI framework flag.** It is `net8.0-windows` with `UseWindowsForms` absent. If it referenced WinForms, the CLI would inherit the desktop runtime pack transitively and none of the size or trimming gains would materialise. WinForms exists in this solution for one reason — `NotifyIcon` in the tray app — and must not spread beyond `Fling.Gui`.
+- **Clipboard reading moves to Win32 P/Invoke.** `OpenClipboard` / `GetClipboardData` with `CF_UNICODETEXT`, `CF_DIB`, and the registered `HTML Format`. The existing `ExtractHtmlFragment` parses the raw CF_HTML string and carries over unchanged. This is the single largest task in the phase.
+- **Image conversion needs a `System.Drawing` replacement.** ImageSharp (managed, trim-friendly, small) or WIC via COM interop (no dependency, more code). ImageSharp is the lower-risk pick; verify its dual-licence terms suit the project before committing.
+- **`PublishTrimmed` is enabled for the CLI, not the tray app.** WPF is not trim-compatible, so `Fling.Gui` stays untrimmed. The two front-ends do not need the same publish settings.
+- **Trim warnings are build failures, not advisories.** `TreatWarningsAsErrors=true` is already set, and trimming raises IL2026 on reflection-based `JsonSerializer.Serialize<T>`. Source-generated `JsonSerializerContext` for `FlingConfig` and the protocol DTOs is therefore mandatory, not optional. It is also a prerequisite if NativeAOT is ever pursued.
+- **NativeAOT is not attempted here.** It would reach roughly 5–8 MB with near-zero startup, but requires the MSVC "Desktop Development for C++" workload on every build machine. Trimming captures most of the benefit with no toolchain prerequisite. Revisit once the WinForms dependency is gone, since that is the blocker for both.
 - **Commands become thin adapters.** Each command in `Commands/` currently mixes orchestration with `Console` output. Orchestration moves to Core; the command keeps argument parsing, console writing, and exit-code mapping.
 - **A `SendOperation` type in Core owns the send pipeline.** Encode → resolve devices → resolve addresses → send in parallel → apply name sync → return per-device results. Without this, the GUI reimplements the body of `SendCommand` and the two front-ends drift.
 - **`SendOperation` returns results, it does not print them.** Per-device outcome (success, auth failure, network failure, resolved device name) is data. The CLI maps it to text and exit codes; the GUI maps it to a results list and a notification.
@@ -54,9 +90,11 @@ Four projects is more ceremony than a solo project usually wants, but each has o
 
 ### Tasks
 
+**Restructuring**
+
 - [ ] Create `Fling.Core` (`net8.0`). Move `Config/`, `Net/`, `Content/ClipPayload`, `Content/ContentEncoder`, `Content/FileContentResolver`, `Content/IClipboardReader`.
-- [ ] Add `IImageEncoder` to Core; move `ImageLoader` to `Fling.Windows` as its implementation.
-- [ ] Create `Fling.Windows` (`net8.0-windows`, `UseWindowsForms=true`). Move `WindowsClipboardReader`, the image encoder, and the COM shortcut code currently in `InstallCommand`/`UninstallCommand` into a reusable `SendToIntegration` type.
+- [ ] Add `IImageEncoder` to Core; `ImageLoader` becomes its Windows implementation.
+- [ ] Create `Fling.Windows` (`net8.0-windows`, **no** `UseWindowsForms` / `UseWPF`). Home for the clipboard reader, image encoder, a reusable `SendToIntegration` extracted from `InstallCommand`/`UninstallCommand`, and startup registration for Phase 4.
 - [ ] Add `SendOperation` to Core, encapsulating the pipeline currently inlined in `SendCommand`.
 - [ ] Add `PairOperation` to Core, encapsulating the pairing logic currently inlined in `PairCommand` (endpoint resolution, key generation, request, conflict detection, persistence).
 - [ ] Add `ReachabilityProbe` to Core, encapsulating what `StatusCommand` does per device.
@@ -64,6 +102,15 @@ Four projects is more ceremony than a solo project usually wants, but each has o
 - [ ] Add `[JsonExtensionData]` to `FlingConfig` so unknown properties survive a load-modify-save by an older build.
 - [ ] Rewrite the CLI commands as adapters over the new Core operations. Exit codes and all console output must be byte-identical to current behaviour.
 - [ ] Update `Fling.slnx` and the publish/release scripts for the new project layout.
+
+**Slimming**
+
+- [ ] Replace `System.Windows.Forms.Clipboard` with a Win32 P/Invoke reader. Preserve current format precedence exactly: image before HTML before plain text. Carry `ExtractHtmlFragment` over unchanged.
+- [ ] Replace `System.Drawing` image conversion. Decide ImageSharp vs WIC first; confirm licence terms if ImageSharp.
+- [ ] Remove `UseWindowsForms` from the CLI csproj. Confirm no `Microsoft.WindowsDesktop.App` framework reference remains anywhere in its graph.
+- [ ] Add source-generated `JsonSerializerContext` for `FlingConfig` and the protocol DTOs; switch `ConfigStore` and `FlingHttpClient` to the generated overloads.
+- [ ] Enable `PublishTrimmed` for the CLI and resolve every trim warning. `TreatWarningsAsErrors=true` means none can be left outstanding.
+- [ ] Update `publish.ps1` for the trimmed CLI build. The PE subsystem patch producing `flingw.exe` is unaffected — verify the subsystem byte is still at the expected offset in the trimmed output.
 
 ### Unit Tests
 
@@ -73,13 +120,21 @@ Four projects is more ceremony than a solo project usually wants, but each has o
 - [ ] `ConfigStore` atomic write: a simulated failure mid-write leaves the previous file intact.
 - [ ] `ConfigStore` concurrent save from two threads does not interleave or corrupt.
 - [ ] A config file containing an unrecognised property survives a load-modify-save round trip with that property intact.
+- [ ] Clipboard reader format precedence is unchanged: an item carrying both image and text yields the image; one carrying both HTML and plain text yields HTML.
+- [ ] `ExtractHtmlFragment` tests pass unmodified against the P/Invoke reader's CF_HTML output.
+- [ ] Image encoder converts JPG, BMP, and GIF to PNG, and rejects a missing file with the same exception type as before.
+- [ ] Config and protocol DTOs round-trip through the source-generated serializer identically to the reflection-based one.
 
 ### Verification
 
 1. `dotnet build` at 0 warnings across all four projects.
 2. Every command in the CLI README produces identical output to the pre-refactor build.
-3. `fling send --clipboard --all` against a real phone still works.
+3. `fling send --clipboard --all` against a real phone still works, for text, rich text, and image clipboard content.
 4. Full test suite green.
+5. Published `fling.exe` is **≤ 12 MB** (from 69 MB). Fail the phase if it exceeds 15 MB — that indicates the desktop pack crept back in.
+6. `dotnet publish` output contains no `PresentationFramework.dll`, `System.Windows.Forms.dll`, or `D3DCompiler_47_cor3.dll`.
+7. Cold start of `fling --version` on a cleared `%LOCALAPPDATA%\Temp\.net` cache is **under 800 ms** (from 1445 ms).
+8. Trimming has not broken reflection-dependent paths — exercise every command against a real device, since trim breakage typically surfaces at runtime rather than at build time.
 
 ---
 
@@ -90,7 +145,8 @@ Four projects is more ceremony than a solo project usually wants, but each has o
 ### Design decisions
 
 - **`ShutdownMode.OnExplicitShutdown`.** WPF's default terminates the app when the last window closes, which for a tray app means it dies the first time a user closes a dialog. This must be set before any window is shown.
-- **Tray icon via WinForms `NotifyIcon`.** Enable `UseWPF` and `UseWindowsForms` together and use `NotifyIcon` directly rather than adding a third-party tray package. It also gives us `ShowBalloonTip` for free in Phase 5.
+- **Tray icon via WinForms `NotifyIcon`.** Enable `UseWPF` and `UseWindowsForms` together and use `NotifyIcon` directly rather than adding a third-party tray package. It also gives us `ShowBalloonTip` for free in Phase 5. `Fling.Gui` is the **only** project permitted to set either flag — see Phase 0 for what happens when WinForms reaches the CLI. Clipboard access here goes through Core's `IClipboardReader`, not `System.Windows.Forms.Clipboard`.
+- **`Fling.Gui` is not trimmed.** WPF is not trim-compatible. The tray app accepts the larger binary; the CLI does not have to.
 - **Single instance via a named mutex.** A second launch signals the running instance to open the Fling window, then exits.
 - **`FlingTray.exe`, not `Fling.exe`.** `dist/` already contains `fling.exe` and `flingw.exe`; a third binary claiming a similar name in the same folder is a support problem.
 - **The tray app never shells out to the CLI.** Both are front-ends over Core.
@@ -280,7 +336,7 @@ Four projects is more ceremony than a solo project usually wants, but each has o
 
 - **The tray app releases independently under a `gui/vX.Y.Z` tag.** The repo already releases per component — `cli/v1.0.0`, `android/v1.0.0`, `android/v1.0.1` — with Android running ahead of the CLI. The release axis is the shipped artifact, not the source directory, so the tray app living inside the PC-side solution does not make it part of the CLI's release.
 - **Independent version numbers, not a shared one.** The CLI is stable; the tray app has six phases of churn ahead. A shared version means either republishing byte-identical CLI binaries under bumped versions or holding tray releases behind CLI ones. Compatibility is expressed the way the existing scripts already express it: a cross-reference line in the release notes naming the latest tag of the other components.
-- **Its own zip, containing only the tray app.** `fling.exe` and `flingw.exe` are each a full self-contained runtime — 69 MB apiece, zipping to 127 MB together — so bundling everything into one download would approach 200 MB to serve two audiences that mostly want one binary each. The release notes link to the CLI release instead.
+- **Its own zip, containing only the tray app.** After Phase 0 the CLI zip should be roughly 20 MB; the tray app carries WPF untrimmed and will be several times that. Bundling them would inflate the CLI download for an audience that wants a scriptable binary, and vice versa. The release notes link to the other release instead.
 - **No PE subsystem patching.** The two-exe `fling.exe`/`flingw.exe` trick exists because a console app needs both a console and a no-console variant. A WPF app is GUI-subsystem natively.
 - **Config compatibility across version skew is handled in code, not by release discipline.** See the `[JsonExtensionData]` decision in Phase 0. Users will run mismatched front-end versions and neither release process can prevent it.
 

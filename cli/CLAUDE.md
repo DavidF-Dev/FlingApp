@@ -6,20 +6,25 @@ The directory is named `cli/` for historical reasons; it holds the whole PC-side
 
 ## Projects
 
-| Project | Target | Contents |
-|---------|--------|----------|
-| `Fling.Core` | `net8.0` | Config, protocol, content encoding, discovery, send orchestration. |
-| `Fling.Windows` | `net8.0-windows` | Windows implementations of Core's platform interfaces: clipboard, image encoding, Explorer "Send to", startup registration. |
-| `Fling` | `net8.0-windows` | CLI (`fling.exe` / `flingw.exe`). |
-| `Fling.Gui` | `net8.0-windows` | WPF tray app (`FlingTray.exe`). |
+| Project | Target | UI framework | Contents |
+|---------|--------|--------------|----------|
+| `Fling.Core` | `net8.0` | none | Config, protocol, content encoding, discovery, send orchestration. |
+| `Fling.Windows` | `net8.0-windows` | none | Windows implementations of Core's platform interfaces: clipboard (Win32 P/Invoke), image encoding, Explorer "Send to", startup registration. |
+| `Fling` | `net8.0-windows` | none | CLI (`fling.exe` / `flingw.exe`). Trimmed. |
+| `Fling.Gui` | `net8.0-windows` | WPF + WinForms | Tray app (`FlingTray.exe`). Not trimmed. |
 
 `Fling.Core` targets `net8.0` deliberately — the target framework is what enforces that no Win32, COM, WinForms, or `System.Drawing` dependency reaches shared logic. Put platform code in `Fling.Windows` behind an interface instead of retargeting Core.
+
+**Do not set `UseWindowsForms` or `UseWPF` outside `Fling.Gui`.** Either flag adds a framework reference to `Microsoft.WindowsDesktop.App`; a self-contained publish ships that pack whole — all of WPF included — no matter what is actually called, and the project becomes untrimmable. The CLI once carried both for two APIs at a cost of 58 MB and its ability to trim. WinForms is present in this solution for exactly one reason: `NotifyIcon`.
+
+Clipboard access goes through Core's `IClipboardReader` from both front-ends. The Windows implementation is Win32 interop; the managed `System.Windows.Forms.Clipboard` wrapper is what caused the size problem and must not come back.
 
 Front-ends are peers. Neither shells out to the other; both consume Core directly. Orchestration belongs in Core and returns structured results — front-ends decide how to present them.
 
 ## Architecture
 
 - Both executables are published as single self-contained executables (compressed, no runtime dependency).
+- JSON uses a source-generated `JsonSerializerContext`, not reflection-based serialization — the CLI is trimmed, and reflection-based `JsonSerializer` overloads raise IL2026, which `TreatWarningsAsErrors` turns into a build failure.
 - Uses `HttpClient` to POST content to the Android app's HTTP server.
 - Shared configuration in `%APPDATA%\Fling\config.json`. Access is guarded by a cross-process named mutex and written via temp file + atomic replace — the file holds the API keys and a resident tray app makes concurrent access with CLI invocations real.
 - Tray app preferences in `%APPDATA%\Fling\gui.json`, owned exclusively by `Fling.Gui`.
@@ -70,3 +75,4 @@ fling send --image "{0}"
 ## Conventions
 
 - Keep the build at **0 warnings**.
+- Keep `fling.exe` small. It is invoked by Greenshot and Explorer "Send to", where cold-start latency reads as a failed send. Target ≤ 12 MB published; anything approaching 15 MB means a framework reference crept back in.
