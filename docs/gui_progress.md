@@ -76,7 +76,9 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - **`Fling.Core` targets `net8.0`, not `net8.0-windows`.** This is the whole point of the split — the compiler enforces that no Win32, COM, WinForms, or `System.Drawing` dependency leaks into shared logic.
 - **`Fling.Windows` sets no UI framework flag.** It is `net8.0-windows` with `UseWindowsForms` absent. If it referenced WinForms, the CLI would inherit the desktop runtime pack transitively and none of the size or trimming gains would materialise. WinForms exists in this solution for one reason — `NotifyIcon` in the tray app — and must not spread beyond `Fling.Gui`.
 - **Clipboard reading moves to Win32 P/Invoke.** `OpenClipboard` / `GetClipboardData` with `CF_UNICODETEXT`, `CF_DIB`, and the registered `HTML Format`. The existing `ExtractHtmlFragment` parses the raw CF_HTML string and carries over unchanged. This is the single largest task in the phase.
-- **Image conversion needs a `System.Drawing` replacement.** ImageSharp (managed, trim-friendly, small) or WIC via COM interop (no dependency, more code). ImageSharp is the lower-risk pick; verify its dual-licence terms suit the project before committing.
+- **`System.Drawing` stays, as a package reference.** It never required the desktop runtime pack — `System.Drawing.Common` is a standalone NuGet package over GDI+, and it arrived free as a side effect of `UseWindowsForms` being set for `Clipboard`. Measured at 10.2 MB trimmed with zero trim warnings, so `ImageLoader` needs no change and image handling keeps bit-identical format support. ImageSharp and WIC were both considered and rejected: neither can guarantee unchanged behaviour, WIC has no managed wrapper outside `PresentationCore`, and GDI+ is serviced by Windows Update rather than requiring a Fling release to patch an image-decoder CVE. Being Windows-only is not a constraint here — this lives in `Fling.Windows`.
+- **PNG input passes through without re-encoding.** `LoadAsPng` currently decodes every image to a bitmap and re-encodes it, including files that are already PNG. That is the Greenshot path — screenshot to PNG, then `send --image` — so the common case pays a full decode/encode round trip for nothing, and GDI+ does not preserve the source's compression settings, so the output is frequently *larger* than the input and therefore slower to transfer.
+- **The pass-through is gated on content, not the file extension.** A file named `.png` that is not a PNG must not reach the phone unvalidated. Check the 8-byte signature, and also confirm the file ends with a well-formed `IEND` chunk: without that second check a truncated PNG stops failing fast on the PC — as it does today — and instead sends a broken image the user only discovers on the phone. Truncation is the dominant corruption mode and the check costs one seek.
 - **`PublishTrimmed` is enabled for the CLI, not the tray app.** WPF is not trim-compatible, so `Fling.Gui` stays untrimmed. The two front-ends do not need the same publish settings.
 - **Trim warnings are build failures, not advisories.** `TreatWarningsAsErrors=true` is already set, and trimming raises IL2026 on reflection-based `JsonSerializer.Serialize<T>`. Source-generated `JsonSerializerContext` for `FlingConfig` and the protocol DTOs is therefore mandatory, not optional. It is also a prerequisite if NativeAOT is ever pursued.
 - **NativeAOT is not attempted here.** It would reach roughly 5–8 MB with near-zero startup, but requires the MSVC "Desktop Development for C++" workload on every build machine. Trimming captures most of the benefit with no toolchain prerequisite. Revisit once the WinForms dependency is gone, since that is the blocker for both.
@@ -106,8 +108,10 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 **Slimming**
 
 - [ ] Replace `System.Windows.Forms.Clipboard` with a Win32 P/Invoke reader. Preserve current format precedence exactly: image before HTML before plain text. Carry `ExtractHtmlFragment` over unchanged.
-- [ ] Replace `System.Drawing` image conversion. Decide ImageSharp vs WIC first; confirm licence terms if ImageSharp.
-- [ ] Remove `UseWindowsForms` from the CLI csproj. Confirm no `Microsoft.WindowsDesktop.App` framework reference remains anywhere in its graph.
+- [ ] Swap `UseWindowsForms` for a `System.Drawing.Common` package reference. `ImageLoader` itself is unchanged.
+- [ ] Add a CF_DIB → PNG path for the clipboard reader: prepend a `BITMAPFILEHEADER` to the DIB and decode via `Image.FromStream`, then encode PNG through the same `IImageEncoder`.
+- [ ] Add the PNG pass-through to `LoadAsPng`: validate the signature and trailing `IEND` chunk, and on a match return the file bytes verbatim. Files shorter than the signature must fall through to the decoder rather than throwing, and the existing missing-file check stays first.
+- [ ] Confirm no `Microsoft.WindowsDesktop.App` framework reference remains anywhere in the CLI's graph.
 - [ ] Add source-generated `JsonSerializerContext` for `FlingConfig` and the protocol DTOs; switch `ConfigStore` and `FlingHttpClient` to the generated overloads.
 - [ ] Enable `PublishTrimmed` for the CLI and resolve every trim warning. `TreatWarningsAsErrors=true` means none can be left outstanding.
 - [ ] Update `publish.ps1` for the trimmed CLI build. The PE subsystem patch producing `flingw.exe` is unaffected — verify the subsystem byte is still at the expected offset in the trimmed output.
@@ -122,7 +126,12 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - [ ] A config file containing an unrecognised property survives a load-modify-save round trip with that property intact.
 - [ ] Clipboard reader format precedence is unchanged: an item carrying both image and text yields the image; one carrying both HTML and plain text yields HTML.
 - [ ] `ExtractHtmlFragment` tests pass unmodified against the P/Invoke reader's CF_HTML output.
-- [ ] Image encoder converts JPG, BMP, and GIF to PNG, and rejects a missing file with the same exception type as before.
+- [ ] Image encoder converts JPG, BMP, and GIF to PNG, and rejects a missing file with the same exception type as before. These tests should pass unmodified — `ImageLoader` is not being rewritten.
+- [ ] A CF_DIB blob captured from the clipboard decodes to a PNG with correct dimensions and no vertical flip (DIBs are bottom-up by default).
+- [ ] A valid PNG is returned byte-for-byte identical to the file on disk.
+- [ ] A JPEG renamed to `.png` is decoded and re-encoded, not passed through.
+- [ ] A PNG truncated mid-file is rejected with the same error as any other unreadable image, not passed through.
+- [ ] A file shorter than the PNG signature produces the decoder's error, not an indexing exception.
 - [ ] Config and protocol DTOs round-trip through the source-generated serializer identically to the reflection-based one.
 
 ### Verification
