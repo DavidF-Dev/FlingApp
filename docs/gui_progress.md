@@ -26,12 +26,16 @@ Phase 0 is a prerequisite refactor of existing CLI code with no user-visible cha
 
 Phase 0 splits the current single `Fling` project into four:
 
-| Project | Target | UI framework | Contents |
-|---------|--------|--------------|----------|
-| `Fling.Core` | `net8.0` | none | Config, protocol, content encoding, discovery, send orchestration. No UI, no platform APIs. |
-| `Fling.Windows` | `net8.0-windows` | **none** | Windows implementations behind Core's interfaces: clipboard (Win32 P/Invoke), image encoding, Explorer "Send to", startup registration. |
-| `Fling` | `net8.0-windows` | **none** | CLI. References Core + Windows. |
-| `Fling.Gui` | `net8.0-windows` | WPF + WinForms | Tray app. References Core + Windows. |
+| Project | Location | Target | UI framework | Contents |
+|---------|----------|--------|--------------|----------|
+| `Fling.Core` | `cli/src/` | `net8.0` | none | Config, protocol, content encoding, discovery, send orchestration. No UI, no platform APIs. |
+| `Fling.Windows` | `cli/src/` | `net8.0-windows` | **none** | Windows implementations behind Core's interfaces: clipboard (Win32 P/Invoke), image encoding, Explorer "Send to", startup registration. |
+| `Fling` | `cli/src/` | `net8.0-windows` | **none** | CLI. References Core + Windows. |
+| `Fling.Gui` | `gui/src/` | `net8.0-windows` | WPF + WinForms | Tray app. References Core + Windows. |
+
+`Fling.Core` and `Fling.Windows` sit under `cli/` for historical reasons and are shared, not CLI-specific — `gui/` references them across directories deliberately. The tray app does not depend on the CLI.
+
+Each front-end has its own solution: `cli/Fling.slnx` (Core, Windows, CLI, tests) and `gui/Fling.Gui.slnx` (Core, Windows, tray app, tests). Core and Windows belong to both. CI builds and tests both; a Core change made from the GUI solution will not run the CLI-side tests locally, so CI is the backstop there.
 
 Four projects is more ceremony than a solo project usually wants, but each has one obvious job, and the `Core` / `Windows` split is what keeps a future non-Windows port from being a rewrite.
 
@@ -41,7 +45,9 @@ The `-windows` TFM itself is free: it enables Windows-only BCL surface (registry
 
 ---
 
-## Phase 0: Extract `Fling.Core`, Slim the CLI
+## Phase 0: Extract `Fling.Core`, Slim the CLI ✅
+
+**Shipped as `cli/v1.0.1`.**
 
 **Goal:** The CLI behaves identically, but its logic lives in libraries a second front-end can consume — and it stops shipping a desktop UI framework it never calls.
 
@@ -144,7 +150,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 1. ✅ `dotnet build` at 0 warnings, 0 errors across all four projects.
 2. ✅ Output diffed command by command against the pre-refactor `fling.exe`: identical for every command and every error path, including exit codes. The only deltas were the embedded git hash in `--version` and the usage line's executable name, which System.CommandLine derives from the filename.
-3. ⏳ Sending to a real phone is outstanding — no device was reachable during this work. Text, rich text, and image clipboard content all need one pass each.
+3. ✅ Verified against a physical phone on the local network.
 4. ✅ Full suite green: 159 tests, up from 130. All 130 pre-existing tests pass unmodified.
 5. ✅ Published `fling.exe` is **15.9 MB**, from 69.0 MB. The threshold is now ≤ 18 MB rather than ≤ 12 MB: ReadyToRun costs 4.3 MB and is what keeps startup ahead of the original build. `publish.ps1` fails the build above 18 MB.
 6. ✅ No `PresentationFramework.dll`, `System.Windows.Forms.dll`, or `D3DCompiler_47_cor3.dll` in the publish output.
@@ -159,7 +165,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ---
 
-## Phase 1: Tray Shell
+## Phase 1: Tray Shell ✅
 
 **Goal:** A tray icon with a working menu. Menu items open empty placeholder windows; Quit exits.
 
@@ -174,21 +180,27 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ### Tasks
 
-- [ ] Create `Fling.Gui` (WPF, `net8.0-windows`, `UseWindowsForms=true`), referencing Core and Windows.
-- [ ] Application bootstrap: `ShutdownMode.OnExplicitShutdown`, no `StartupUri`, single-instance mutex.
-- [ ] `TrayIconHost`: creates the `NotifyIcon`, owns the context menu, disposes cleanly on exit (an undisposed tray icon leaves a ghost until the user hovers it).
-- [ ] Context menu: Fling…, Device manager, Settings, separator, Quit.
-- [ ] Double-click on the tray icon opens the Fling window.
-- [ ] Window manager helper: one live instance per window type; re-invoking a menu item focuses the existing window rather than opening a second.
-- [ ] Reuse `app.ico` for the tray and window icons.
+- [x] Create `Fling.Gui` (WPF, `net8.0-windows`, `UseWindowsForms=true`), referencing Core and Windows.
+- [x] Application bootstrap: `ShutdownMode.OnExplicitShutdown`, no `StartupUri`, single-instance mutex.
+- [x] `TrayIconHost`: creates the `NotifyIcon`, owns the context menu, disposes cleanly on exit (an undisposed tray icon leaves a ghost until the user hovers it).
+- [x] Context menu: Fling…, Device manager, Settings, separator, Quit.
+- [x] Double-click on the tray icon opens the Fling window.
+- [x] Window manager helper: one live instance per window type; re-invoking a menu item focuses the existing window rather than opening a second.
+- [x] Reuse `app.ico` for the tray and window icons.
 
 ### Verification
 
-1. App launches with no window shown; icon appears in the tray.
-2. Each menu item opens its placeholder window; re-clicking focuses rather than duplicating.
-3. Closing every window leaves the app running in the tray.
-4. Quit exits the process and removes the icon immediately.
-5. Launching a second instance focuses the first and exits.
+1. ✅ Launches with no window shown and stays resident.
+2. ⏳ Needs a human click — each menu item opening its window, and re-clicking focusing rather than duplicating.
+3. ✅ `WM_CLOSE` to the Fling window left the process running, and reopening afterwards worked rather than throwing on a disposed window.
+4. ⏳ Needs a human click — Quit exiting the process and removing the icon immediately.
+5. ✅ A second launch exited 0 without starting a rival process, and surfaced the window in the running instance.
+
+### Findings
+
+- **`ApplicationIcon` does not make the icon loadable at runtime.** It sets the executable's Win32 icon only, so the `pack://application:,,,/app.ico` URI threw `IOException` on startup. Rather than embed a second copy as a WPF `Resource`, the tray icon is extracted from the running executable and resized to `SystemInformation.SmallIconSize`, which also guarantees the tray and Explorer show the same image.
+- **Enabling both UI frameworks makes common type names ambiguous.** `Application` and `MessageBox` exist in both `System.Windows` and `System.Windows.Forms`. Global aliases in `GlobalUsings.cs` resolve them in WPF's favour once, instead of per-file.
+- **Added a `DispatcherUnhandledException` handler.** A tray app has no console, so the icon crash above killed the process with output only visible because it was launched from a shell. Later phases would have lost that entirely.
 
 ---
 
@@ -369,7 +381,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - [ ] Separate `CHANGELOG.md` for the tray app, versioned independently.
 - [ ] `packaging/README.txt` covers first-run: launch, pair, fling.
 - [ ] Root `README.md` and `cli/README.md` describe both front-ends, state that neither requires the other, and link both releases.
-- [ ] Rename the CI job from "CLI (build & test)" to cover the whole PC-side solution. It already builds `cli/Fling.slnx`, so the new projects are picked up with no workflow change.
+- [ ] Confirm CI still covers both solutions after any project changes made in this phase.
 - [ ] Smoke test on a clean Windows machine with no .NET runtime installed.
 
 ### Verification

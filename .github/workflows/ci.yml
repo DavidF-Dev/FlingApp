@@ -27,11 +27,16 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Build
+      - name: Build CLI
         run: dotnet build cli/Fling.slnx -c Release -p:TreatWarningsAsErrors=true --nologo
 
-      - name: Test
+      - name: Test CLI
         run: dotnet test cli/Fling.slnx -c Release --no-build --nologo
+
+      # Separate solution, so a change that breaks only the tray app would otherwise
+      # pass. The shared libraries are built again here as part of its graph.
+      - name: Build tray app
+        run: dotnet build gui/Fling.Gui.slnx -c Release -p:TreatWarningsAsErrors=true --nologo
 
   android:
     name: Android (build & test)

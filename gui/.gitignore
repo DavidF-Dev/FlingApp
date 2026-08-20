@@ -1,0 +1,32 @@
+# .NET
+bin/
+obj/
+publish/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.nupkg
+
+# User-specific
+*.user
+*.suo
+*.rsuser
+*.DotSettings.user
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+dist/
+
+# NuGet
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Rider
+.idea/
+*.sln.iml
