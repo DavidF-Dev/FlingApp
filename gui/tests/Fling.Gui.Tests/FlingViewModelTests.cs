@@ -302,6 +302,36 @@ public sealed class FlingViewModelTests : IDisposable
         Assert.Contains("1 of 2", model.StatusMessage);
     }
 
+    /// <summary>
+    /// The per-device list is the detail; a summary that says the same thing about the
+    /// same single device is just the reason printed twice.
+    /// </summary>
+    [Fact]
+    public async Task SendAsync_SingleDeviceFails_DoesNotAlsoSummariseIt()
+    {
+        SaveDevices("Pixel");
+        var model = Build(Text("hello"), new SelectiveHandler("10.0.0.1"));
+        model.StageFromClipboard(userInitiated: false);
+
+        await model.SendAsync();
+
+        Assert.Null(model.StatusMessage);
+        Assert.Contains("could not be reached", model.Results!.Single().Outcome);
+    }
+
+    [Fact]
+    public async Task SendAsync_SingleDeviceAuthFailure_ShowsOnlyTheGuidance()
+    {
+        SaveDevices("Pixel");
+        var model = Build(Text("hello"), new StatusHandler(HttpStatusCode.Unauthorized));
+        model.StageFromClipboard(userInitiated: false);
+
+        await model.SendAsync();
+
+        Assert.Null(model.StatusMessage);
+        Assert.Contains("pair again", model.Results!.Single().Outcome);
+    }
+
     [Fact]
     public async Task SendAsync_AuthFailure_SaysToPairAgain()
     {

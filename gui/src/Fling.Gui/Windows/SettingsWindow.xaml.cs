@@ -13,11 +13,6 @@ public partial class SettingsWindow : Window
     private readonly SettingsViewModel _model;
     private readonly IntPtr _activeWindow = WindowPlacement.CaptureActiveWindow();
 
-    public SettingsWindow()
-        : this(BuildDefaultModel())
-    {
-    }
-
     public SettingsWindow(SettingsViewModel model)
     {
         InitializeComponent();
@@ -33,16 +28,6 @@ public partial class SettingsWindow : Window
     {
         base.OnSourceInitialized(e);
         WindowPlacement.CenterOnActiveScreen(this, _activeWindow);
-    }
-
-    private static SettingsViewModel BuildDefaultModel()
-    {
-        var store = new ConfigStore();
-        return new SettingsViewModel(
-            store,
-            new GuiSettingsStore(),
-            new StartupRegistration(App.StartMinimizedArgument),
-            new ExplorerSendToIntegration(SendToIntegration.ResolveExePath()));
     }
 
     private void OnOpenConfigFolderClicked(object sender, RoutedEventArgs e) =>

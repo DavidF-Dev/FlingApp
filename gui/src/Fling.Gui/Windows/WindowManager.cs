@@ -10,7 +10,18 @@ public sealed class WindowManager
 {
     private readonly Dictionary<Type, Window> _open = [];
 
-    public void Show<TWindow>() where TWindow : Window, new()
+    /// <summary>
+    /// Raised whenever a window closes, so the caller can refresh anything the window
+    /// might have changed.
+    /// </summary>
+    public event Action? WindowClosed;
+
+    /// <summary>
+    /// Shows the window of this type, creating it with <paramref name="create"/> only if
+    /// one is not already open. The factory keeps window construction — and the
+    /// dependencies each window needs — with the caller rather than here.
+    /// </summary>
+    public void Show<TWindow>(Func<TWindow> create) where TWindow : Window
     {
         if (_open.TryGetValue(typeof(TWindow), out var existing))
         {
@@ -18,10 +29,16 @@ public sealed class WindowManager
             return;
         }
 
-        var window = new TWindow();
+        var window = create();
         _open[typeof(TWindow)] = window;
-        window.Closed += (_, _) => _open.Remove(typeof(TWindow));
+        window.Closed += (_, _) =>
+        {
+            _open.Remove(typeof(TWindow));
+            WindowClosed?.Invoke();
+        };
+
         window.Show();
+        Surface(window);
     }
 
     public void CloseAll()

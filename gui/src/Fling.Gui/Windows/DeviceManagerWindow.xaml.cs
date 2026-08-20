@@ -20,11 +20,6 @@ public partial class DeviceManagerWindow : Window
     private readonly DispatcherTimer _reachabilityTimer;
     private readonly DispatcherTimer _discoveryTimer;
 
-    public DeviceManagerWindow()
-        : this(BuildDefaultModel())
-    {
-    }
-
     public DeviceManagerWindow(DeviceManagerViewModel model)
     {
         InitializeComponent();
@@ -40,16 +35,6 @@ public partial class DeviceManagerWindow : Window
         _discoveryTimer.Tick += async (_, _) => await _model.PollDiscoveryAsync(_lifetime.Token);
 
         Loaded += OnLoaded;
-    }
-
-    private static DeviceManagerViewModel BuildDefaultModel()
-    {
-        var store = new ConfigStore();
-        return new DeviceManagerViewModel(
-            store,
-            new ReachabilityProbe(store),
-            new UdpDiscovery(),
-            new PairOperation(store));
     }
 
     protected override void OnSourceInitialized(EventArgs e)

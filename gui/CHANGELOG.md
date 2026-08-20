@@ -16,3 +16,5 @@
 - Sends report per-device outcomes, and the chosen device is remembered between sends.
 - Settings: maximum size, compression, this PC's name, and logging are shared with the command line tool; notification mode, remembering the last device, starting at sign-in, and the Explorer "Send to" entry belong to the tray app. Changes apply as they are made.
 - Buttons to open the config folder and the log file, and the app version.
+- Send outcomes are reported through the notification area once the window has closed. Failures name the device and say whether it rejected the key or could not be reached; successes mark the tray icon briefly rather than interrupting. Configurable: always, only on failure (the default), or never.
+- The tray tooltip shows how many devices are paired.

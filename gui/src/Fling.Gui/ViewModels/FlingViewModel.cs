@@ -4,6 +4,7 @@ using System.Text;
 using Fling.Config;
 using Fling.Content;
 using Fling.Gui.Settings;
+using Fling.Gui.Tray;
 using Fling.Operations;
 
 namespace Fling.Gui.ViewModels;
@@ -27,6 +28,7 @@ public sealed class FlingViewModel : ObservableObject
     private readonly IClipboardReader _clipboard;
     private readonly IImageEncoder _images;
     private readonly SendOperation _send;
+    private readonly ISendNotifier? _notifier;
 
     private CancellationTokenSource? _sendCancellation;
     private StagedItem _staged = StagedItem.None;
@@ -41,13 +43,15 @@ public sealed class FlingViewModel : ObservableObject
         GuiSettingsStore settingsStore,
         IClipboardReader clipboard,
         IImageEncoder images,
-        SendOperation send)
+        SendOperation send,
+        ISendNotifier? notifier = null)
     {
         _store = store;
         _settingsStore = settingsStore;
         _clipboard = clipboard;
         _images = images;
         _send = send;
+        _notifier = notifier;
 
         LoadTargets(_settingsStore.Load());
     }
@@ -315,6 +319,10 @@ public sealed class FlingViewModel : ObservableObject
         Results = results.Select(r => new SendResultViewModel(r)).ToList();
         RememberTarget();
 
+        // The window closes itself on success, so the outcome has to be reported from
+        // somewhere that outlives it.
+        _notifier?.SendCompleted(results);
+
         var failures = results.Where(r => !r.Success).ToList();
         if (failures.Count == 0)
         {
@@ -322,9 +330,11 @@ public sealed class FlingViewModel : ObservableObject
             return true;
         }
 
-        StatusMessage = failures.Count == results.Count && results.Count == 1
-            ? $"Could not send to {failures[0].Device.Name}: {failures[0].Error}"
-            : $"Sent to {results.Count - failures.Count} of {results.Count} devices.";
+        // The results list already names every device and what happened to it, so a
+        // summary line only earns its place when there is more than one to summarise.
+        StatusMessage = results.Count > 1
+            ? $"Sent to {results.Count - failures.Count} of {results.Count} devices."
+            : null;
 
         return false;
     }

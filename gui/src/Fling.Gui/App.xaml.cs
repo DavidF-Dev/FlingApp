@@ -1,8 +1,13 @@
 using System.Windows;
 using System.Windows.Threading;
 using Fling.Config;
+using Fling.Content;
+using Fling.Gui.Settings;
 using Fling.Gui.Tray;
+using Fling.Gui.ViewModels;
 using Fling.Gui.Windows;
+using Fling.Net;
+using Fling.Operations;
 using Fling.Platform;
 
 namespace Fling.Gui;
@@ -15,8 +20,12 @@ public partial class App : Application
     /// </summary>
     public const string StartMinimizedArgument = "--minimized";
 
+    private readonly ConfigStore _config = new();
+    private readonly GuiSettingsStore _settings = new();
+
     private SingleInstance? _instance;
     private TrayIconHost? _tray;
+    private SendNotifier? _notifier;
     private WindowManager? _windows;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -43,9 +52,15 @@ public partial class App : Application
         _windows = new WindowManager();
         _tray = new TrayIconHost(new TrayMenuActions(
             OpenFling: OpenFling,
-            OpenDeviceManager: () => _windows.Show<DeviceManagerWindow>(),
-            OpenSettings: () => _windows.Show<SettingsWindow>(),
+            OpenDeviceManager: OpenDeviceManager,
+            OpenSettings: OpenSettings,
             Quit: Shutdown));
+
+        _notifier = new SendNotifier(_tray, _settings);
+
+        // A window may have paired or removed a device, which the tooltip reports.
+        _windows.WindowClosed += RefreshTooltip;
+        RefreshTooltip();
 
         _instance.ListenForActivation(() => Dispatcher.Invoke(OpenFling));
 
@@ -62,13 +77,53 @@ public partial class App : Application
     /// </summary>
     private void OpenFling()
     {
-        if (new ConfigStore().Load().Devices.Count == 0)
+        if (_config.Load().Devices.Count == 0)
         {
-            _windows!.Show<DeviceManagerWindow>();
+            OpenDeviceManager();
             return;
         }
 
-        _windows!.Show<FlingWindow>();
+        _windows!.Show(() => new FlingWindow(new FlingViewModel(
+            _config,
+            _settings,
+            new WindowsClipboardReader(),
+            new GdiImageEncoder(),
+            new SendOperation(_config),
+            _notifier)));
+    }
+
+    private void OpenDeviceManager() =>
+        _windows!.Show(() => new DeviceManagerWindow(new DeviceManagerViewModel(
+            _config,
+            new ReachabilityProbe(_config),
+            new UdpDiscovery(),
+            new PairOperation(_config))));
+
+    private void OpenSettings() =>
+        _windows!.Show(() => new SettingsWindow(new SettingsViewModel(
+            _config,
+            _settings,
+            new StartupRegistration(StartMinimizedArgument),
+            new ExplorerSendToIntegration(SendToIntegration.ResolveExePath()))));
+
+    private void RefreshTooltip()
+    {
+        var count = 0;
+        try
+        {
+            count = _config.Load().Devices.Count;
+        }
+        catch (Exception)
+        {
+            // A damaged config is reported where the user can act on it, not in a tooltip.
+        }
+
+        _tray?.SetTooltip(count switch
+        {
+            0 => "Fling — no devices paired",
+            1 => "Fling — 1 device paired",
+            _ => $"Fling — {count} devices paired",
+        });
     }
 
     /// <summary>

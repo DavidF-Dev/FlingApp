@@ -21,11 +21,6 @@ public partial class FlingWindow : Window
     // the user was working in.
     private readonly IntPtr _activeWindow = WindowPlacement.CaptureActiveWindow();
 
-    public FlingWindow()
-        : this(BuildDefaultModel())
-    {
-    }
-
     public FlingWindow(FlingViewModel model)
     {
         InitializeComponent();
@@ -35,17 +30,6 @@ public partial class FlingWindow : Window
         DataContext = _model;
 
         Loaded += OnLoaded;
-    }
-
-    private static FlingViewModel BuildDefaultModel()
-    {
-        var store = new ConfigStore();
-        return new FlingViewModel(
-            store,
-            new GuiSettingsStore(),
-            new WindowsClipboardReader(),
-            new GdiImageEncoder(),
-            new SendOperation(store));
     }
 
     protected override void OnSourceInitialized(EventArgs e)
