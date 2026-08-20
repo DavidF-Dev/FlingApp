@@ -4,6 +4,45 @@ using System.Runtime.InteropServices.Marshalling;
 namespace Fling.Platform;
 
 /// <summary>
+/// Whether Fling appears in Explorer's "Send to" menu.
+/// </summary>
+public interface IShellIntegration
+{
+    bool IsInstalled();
+    void Install();
+    void Uninstall();
+}
+
+/// <summary>
+/// Installs and removes the "Send to" shortcut, pointing it at the CLI.
+/// </summary>
+/// <remarks>
+/// Explorer passes the selected file as an argument, so the shortcut targets the
+/// console executable rather than the tray app.
+/// </remarks>
+public sealed class ExplorerSendToIntegration(string targetPath) : IShellIntegration
+{
+    private const string Arguments = "send --all --file";
+
+    public bool IsInstalled() => SendToIntegration.IsInstalled();
+
+    public void Install()
+    {
+        var path = SendToIntegration.GetShortcutPath()
+                   ?? throw new InvalidOperationException("Could not locate the Send to folder.");
+
+        SendToIntegration.Install(path, targetPath, Arguments);
+    }
+
+    public void Uninstall()
+    {
+        var path = SendToIntegration.GetShortcutPath();
+        if (path is not null && File.Exists(path))
+            File.Delete(path);
+    }
+}
+
+/// <summary>
 /// Manages the Fling shortcut in the user's Windows "Send to" menu.
 /// </summary>
 public static partial class SendToIntegration

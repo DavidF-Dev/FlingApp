@@ -4,7 +4,6 @@
         xmlns:local="clr-namespace:Fling.Gui.Windows"
         Title="Fling"
         Width="540" Height="520" MinWidth="420" MinHeight="380"
-        WindowStartupLocation="CenterScreen"
         AllowDrop="True">
 
     <Window.Resources>

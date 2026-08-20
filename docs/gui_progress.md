@@ -314,7 +314,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ---
 
-## Phase 4: Settings Window
+## Phase 4: Settings Window ✅
 
 **Goal:** Configure both shared Fling settings and GUI-only preferences, with the distinction visible.
 
@@ -328,28 +328,42 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ### Tasks
 
-- [ ] `SettingsWindow` with two headed groups.
-- [ ] Fling settings (write through Core's `ConfigStore`): max payload size, compression, PC name with the machine-name default shown as a hint, file logging.
-- [ ] App preferences (`gui.json`): notification mode, remember-last-device, default plain-text-for-HTML.
-- [ ] Run at startup: read/write `HKCU\...\Run`, re-read on window open, register with a start-minimized flag.
-- [ ] Explorer "Send to" checkbox over the shared `SendToIntegration`.
-- [ ] "Open log file" button, enabled only when logging is on, plus a button to open the config folder.
-- [ ] About: version, license, project link.
-- [ ] `GuiSettingsStore` with the same defensive posture as `ConfigStore`: missing file returns defaults, corrupt file falls back to defaults rather than throwing — GUI preferences are not worth blocking startup over.
+- [x] `SettingsWindow` with two headed groups.
+- [x] Fling settings (write through Core's `ConfigStore`): max payload size, compression, PC name with the machine-name default shown as a hint, file logging.
+- [x] App preferences (`gui.json`): notification mode, remember-last-device, default plain-text-for-HTML.
+- [x] Run at startup: read/write `HKCU\...\Run`, re-read on window open, register with a start-minimized flag.
+- [x] Explorer "Send to" checkbox over the shared `SendToIntegration`.
+- [x] "Open log file" button, enabled only when logging is on, plus a button to open the config folder.
+- [x] About: version, license, project link.
+- [x] `GuiSettingsStore` with the same defensive posture as `ConfigStore`: missing file returns defaults, corrupt file falls back to defaults rather than throwing — GUI preferences are not worth blocking startup over.
 
 ### Unit Tests
 
-- [ ] `GuiSettingsStore` round-trips; missing file yields defaults; corrupt file yields defaults without throwing.
-- [ ] Startup registration writes and removes the expected registry value, and reports state accurately when the value is absent or points elsewhere.
-- [ ] Shared settings written by the GUI are read back by Core's `ConfigStore` unchanged.
+- [x] `GuiSettingsStore` round-trips; missing file yields defaults; corrupt file yields defaults without throwing.
+- [x] Startup registration writes and removes the expected registry value, and reports state accurately when the value is absent or points elsewhere.
+- [x] Shared settings written by the GUI are read back by Core's `ConfigStore` unchanged.
 
 ### Verification
 
-1. Change max size in the GUI → `fling config show` reflects it.
-2. Change it via `fling config set` → reopening Settings shows the new value.
-3. Toggle run-at-startup → registry entry appears; disable it in Task Manager → Settings reflects that on next open.
-4. Toggle Send to → the Explorer context menu entry appears and disappears.
-5. Deleting `gui.json` while running does not crash the app.
+1. ✅ Covered by test, and confirmed against a real `fling config show`.
+2. ✅ `Reload` runs whenever the window is activated, so a change made by the CLI meanwhile is picked up; covered by test.
+3. ⏳ Needs a manual pass — the registry behaviour is covered by tests against a scratch key, including the Task Manager refusal, but nothing has written to the real Run key yet.
+4. ⏳ Needs a manual pass against the actual Explorer menu.
+5. ✅ Deleting or corrupting `gui.json` falls back to defaults rather than throwing; covered by two tests.
+
+25 new tests: 11 against the registry under a scratch key, 14 on the view-model against fakes.
+
+### Findings
+
+- **Task Manager disables a startup entry without deleting it.** It records the refusal separately, under `Explorer\StartupApproved\Run`, so reading only the Run key would report the entry as enabled when it is not. `IsEnabled` checks both, and `Enable` clears a stale refusal — otherwise ticking the box would appear to do nothing.
+- **A Run entry pointing at a different path is not "enabled".** Moving or reinstalling the app leaves an entry that no longer starts anything; reporting it as on would be a lie.
+- **`--minimized` exists after all.** It was dropped when launching produced no window, but launching now always opens the Fling window, so the sign-in entry needs a way to say otherwise. It also makes the second-instance signal conditional: a sign-in launch that finds the app already running exits quietly instead of popping a window at boot.
+- **Launching the app always opens the Fling window**, whether that starts a new instance or surfaces the running one. A tray icon appearing and nothing else reads as a failed launch. With no devices paired this lands on the Device manager instead, which makes a first run open on pairing.
+- **The startup entry heals a moved executable.** Detecting the mismatch and reporting the checkbox as off was honest but unhelpful: the entry still launched nothing. On startup, an entry naming a file that no longer exists is repointed at the running copy. Deliberately narrow — an entry is never created, a copy that still exists is never displaced, and a refusal recorded in Task Manager survives, since correcting a path is not consent to start again.
+- **The registered command carries arguments, so the path check has to parse it.** Comparing the whole value against a path would never match, and `Path.GetFullPath` throws on the quoted form rather than returning a non-match.
+- **Windows open on the display holding the foreground window.** Centring on the primary display puts the window on the wrong monitor for anyone working on a second one. The foreground window is captured in the constructor, before this window becomes the foreground one, and placement runs in physical pixels through the window handle — WPF coordinates are awkward to reason about across monitors with different scaling.
+- **Registry tests run against a scratch key.** `StartupRegistration` takes its key paths, so tests exercise the real registry code without ever touching what actually launches at sign-in — and clean up after themselves, parent key included.
+- **Settings apply as they are changed.** No Save button to forget; the only validation is on maximum size, which rejects zero and below the way `fling config set` does.
 
 ---
 

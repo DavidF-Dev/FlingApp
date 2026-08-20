@@ -16,6 +16,7 @@ public partial class DeviceManagerWindow : Window
 
     private readonly DeviceManagerViewModel _model;
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly IntPtr _activeWindow = WindowPlacement.CaptureActiveWindow();
     private readonly DispatcherTimer _reachabilityTimer;
     private readonly DispatcherTimer _discoveryTimer;
 
@@ -49,6 +50,12 @@ public partial class DeviceManagerWindow : Window
             new ReachabilityProbe(store),
             new UdpDiscovery(),
             new PairOperation(store));
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        WindowPlacement.CenterOnActiveScreen(this, _activeWindow);
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)

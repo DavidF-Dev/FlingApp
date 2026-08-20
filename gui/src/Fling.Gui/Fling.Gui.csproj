@@ -19,6 +19,8 @@
     <Version>0.1.0</Version>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- LibraryImport generates marshalling stubs that require unsafe blocks. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <!-- WPF is not trim-compatible, so the tray app ships untrimmed. -->

@@ -17,6 +17,10 @@ public partial class FlingWindow : Window
     private readonly FlingViewModel _model;
     private readonly CancellationTokenSource _lifetime = new();
 
+    // Captured before this window exists, while the foreground window is still whatever
+    // the user was working in.
+    private readonly IntPtr _activeWindow = WindowPlacement.CaptureActiveWindow();
+
     public FlingWindow()
         : this(BuildDefaultModel())
     {
@@ -42,6 +46,12 @@ public partial class FlingWindow : Window
             new WindowsClipboardReader(),
             new GdiImageEncoder(),
             new SendOperation(store));
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        WindowPlacement.CenterOnActiveScreen(this, _activeWindow);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

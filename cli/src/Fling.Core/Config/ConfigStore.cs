@@ -18,8 +18,20 @@ public sealed class ConfigStore
     }
 
     public ConfigStore()
-        : this(GetDefaultPath())
+        : this(DefaultPath)
     {
+    }
+
+    /// <summary>
+    /// Where the shared configuration lives when no path is given.
+    /// </summary>
+    public static string DefaultPath
+    {
+        get
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, "Fling", "config.json");
+        }
     }
 
     public FlingConfig Load()
@@ -101,12 +113,6 @@ public sealed class ConfigStore
         var normalized = Path.GetFullPath(filePath).ToLowerInvariant();
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
         return $"Local\\Fling.Config.{Convert.ToHexString(hash.AsSpan(0, 16))}";
-    }
-
-    private static string GetDefaultPath()
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "Fling", "config.json");
     }
 
     /// <summary>
