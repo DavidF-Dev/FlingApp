@@ -16,22 +16,39 @@ This is strictly a clipboard tool — not a file-sharing app. Content is transie
 ## Architecture
 
 ```
-┌─────────────────┐         HTTP POST          ┌─────────────────────┐
-│   Windows PC    │ ──────────────────────────► │    Android Phone    │
-│                 │        Local Network        │                     │
-│  CLI tool       │                             │  Foreground Service │
-│  (fling.exe)    │                             │  (Ktor HTTP server) │
-└─────────────────┘                             └─────────────────────┘
+┌──────────────────────────────┐      HTTP POST       ┌─────────────────────┐
+│         Windows PC           │ ───────────────────► │    Android Phone    │
+│                              │    Local Network     │                     │
+│  ┌────────────┐ ┌─────────┐  │                      │  Foreground Service │
+│  │ CLI        │ │ Tray app│  │                      │  (Ktor HTTP server) │
+│  │ (fling.exe)│ │(FlingTray)│                       │                     │
+│  └─────┬──────┘ └────┬────┘  │                      │                     │
+│        └──────┬──────┘       │                      │                     │
+│           Fling.Core         │                      │                     │
+└──────────────────────────────┘                      └─────────────────────┘
 ```
+
+### PC Side: Shared Core
+
+- `Fling.Core` (`net8.0`) holds configuration, protocol, content encoding, discovery, and send orchestration. No UI and no platform APIs — the target framework enforces this.
+- `Fling.Windows` (`net8.0-windows`) holds Windows-specific implementations behind Core's interfaces: clipboard reading, image encoding, Explorer "Send to" integration, startup registration.
+- The CLI and the tray app are peer front-ends over these libraries. Neither wraps nor requires the other at runtime.
 
 ### PC Side: CLI Tool
 
 - .NET 8, C#, single-file self-contained executable.
-- Primary interface: command-line (`fling send --clipboard`, `fling send --image <path>`).
+- Interface: command-line (`fling send --clipboard`, `fling send --image <path>`).
 - Integrates with Greenshot via External Command Plugin.
 - Supports multiple paired devices (explicit `--device` or `--all` targeting, no default).
 - Configuration: `%APPDATA%\Fling\config.json`.
-- Future: optional tray app wrapping the same logic with clipboard watching.
+
+### PC Side: Tray App
+
+- .NET 8, WPF, single-file self-contained executable (`FlingTray.exe`).
+- Tray icon with four menu items: Fling…, Device manager, Settings, Quit.
+- Targets interactive use: staging and previewing content before sending, GUI pairing, live device reachability.
+- Configuration: shares `config.json` with the CLI; GUI-only preferences live in `%APPDATA%\Fling\gui.json`.
+- See `gui_progress.md` for the phased implementation plan.
 
 ### Android Side: App
 
@@ -215,6 +232,55 @@ Stored at `%APPDATA%\Fling\config.json`:
 }
 ```
 
+Written by both front-ends. Access is guarded by a cross-process named mutex and written via temp file + atomic replace — this file holds the API keys, and a long-running tray app makes concurrent access with CLI invocations real.
+
+## GUI Application
+
+### Tray Menu
+
+| Item | Opens |
+|------|-------|
+| Fling… | Content staging window. Also opened by double-clicking the tray icon. |
+| Device manager | Paired device list, live reachability, and pairing. |
+| Settings | Shared Fling settings and app preferences. |
+| Quit | Exits the tray app. The CLI is unaffected. |
+
+### Fling Window
+
+Stages exactly one item from one of four sources, previews it, and sends it.
+
+- **Sources:** clipboard (auto-staged when the window opens), Paste button / Ctrl+V, file picker, drag-drop. A new source replaces the staged item rather than adding to it.
+- **Preview:** always shown. Thumbnail with dimensions for images; editable text with character count for text. Resolved content type and payload size for both.
+- **Rejected content:** file types that `FileContentResolver` classifies as `FilePath` are refused with an explanation. The path-as-text fallback exists for Explorer "Send to", where the alternative is nothing; in a window with a preview it reads as file transfer and delivers a useless string.
+- **Sensitive clipboard content** — anything carrying the `ExcludeClipboardContentFromMonitorProcessing` or `CanIncludeInClipboardHistory` clipboard formats — is not staged.
+- **Targeting:** All by default when more than one device is paired; the single device when only one is. Nothing is sent without an explicit Fling press (or Enter).
+- **Results:** per-device. A partial failure names which device failed and distinguishes auth failure from unreachable.
+
+### Device Manager
+
+- Paired devices with live reachability, polled only while the window is open.
+- Discovery re-broadcasts on an interval while the window is open, so phones that were asleep appear without reopening.
+- Pairing is asynchronous — `POST /pair` blocks on the user tapping Accept. States: discovering → pairing (cancellable) → accepted / rejected / timed out.
+- Manual `ip:port` entry as a fallback where UDP broadcast is blocked.
+- No local rename: names sync passively from the phone, so a PC-side rename is overwritten on the next send.
+- Removal is confirmed, and stated as one-sided — the phone keeps its entry until cleared there.
+
+### GUI Configuration
+
+Stored at `%APPDATA%\Fling\gui.json`, owned exclusively by the tray app. Never read or written by `Fling.Core` or the CLI:
+
+```json
+{
+  "notifications": "failuresOnly",
+  "rememberLastDevice": true,
+  "lastDevice": "",
+  "sendHtmlAsPlainText": false,
+  "firstRunComplete": false
+}
+```
+
+Absent by design: `runAtStartup`. `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` is the source of truth and is read live — a cached copy goes stale the moment the entry is disabled from Task Manager's Startup tab.
+
 ## Content Types
 
 ### Supported (MVP)
@@ -256,12 +322,35 @@ Stored at `%APPDATA%\Fling\config.json`:
 | Greenshot uses `send --image "{0}"`, no bare positional shorthand | One-time config; adding file-path detection adds complexity for no real UX gain. |
 | Opt-in file logging via `config.log` | Logs each invocation (args, exit code, error message) to `%APPDATA%\Fling\fling.log`. Off by default. Essential for debugging third-party callers (e.g., Greenshot) where stderr is not visible. Auto-trims at 2000 lines. |
 | Two-exe publish: `fling.exe` + `flingw.exe` | A Windows PE exe has exactly one subsystem flag — console or GUI. Console apps flash a window when launched from a GUI caller; GUI apps lose stdout in cmd.exe. The publish script builds once (console), copies, and patches one PE byte to produce the GUI variant. Same pattern as `python.exe` / `pythonw.exe`. |
+| Each component releases independently under a scoped tag (`cli/v*`, `android/v*`, `gui/v*`) | The release axis is the shipped artifact, not the source directory — the tray app shares a solution with the CLI but has its own audience, cadence, changelog, and version. Compatibility is expressed by cross-referencing the other components' latest tags in the release notes. |
+| Config compatibility across front-end version skew handled by `[JsonExtensionData]` | Independent releases mean users will run an older CLI beside a newer tray app, each bundling its own copy of Core. `ConfigStore` deserializes and reserializes, so without extension data an older build silently drops fields a newer build added. Solving this in code beats relying on users to keep versions aligned. |
+| Tray app is a peer front-end, not a CLI wrapper | Shelling out to `fling.exe` would mean parsing stdout for status, no progress or cancellation, and re-solving exe-path resolution. Both front-ends consume `Fling.Core` directly. Neither requires the other at runtime. |
+| `Fling.Core` targets `net8.0`, not `net8.0-windows` | The target framework is what actually enforces that no Win32, COM, WinForms, or `System.Drawing` dependency leaks into shared logic. Platform code lives in `Fling.Windows` behind interfaces. Costs nothing now; means a future non-Windows port is not a rewrite. |
+| WPF for the GUI | Data binding suits the device list and staging preview; single-file self-contained publish already works; tray via the WinForms `NotifyIcon` needs no third-party package. WinUI 3 was rejected for Windows App SDK deployment friction; Avalonia is only worth its dependency if cross-platform is committed to. |
+| GUI preferences in a separate `gui.json`, not nested in `config.json` | Three reasons. Write frequency: GUI preferences change on nearly every interaction while `config.json` changes rarely, so merging them means constantly rewriting the file holding the API keys and contending with CLI invocations. Blast radius: a corrupt `gui.json` falls back to defaults, a corrupt `config.json` costs every pairing. Layering: `Fling.Core` is UI-agnostic by design and should not carry front-end state. |
+| GUI defaults to All devices; CLI still requires explicit targeting | The CLI's no-default rule guards against silently broadcasting sensitive clipboard content. The GUI's mandatory preview and explicit send press remove that failure mode, so the safer-by-default behaviour there is the convenient one. With one paired device the selector shows that device, not "All". |
+| Clipboard auto-staged when the Fling window opens | "I copied something, now send it" is the dominant case; a mandatory paste click exists only because other sources do. Nothing is transmitted without an explicit send. Content carrying the sensitive-clipboard formats is not staged at all. |
+| GUI rejects file types the CLI sends as a path | `FileContentResolver` falls back to sending the file path as text for binary files, which backstops Explorer "Send to" where the alternative is nothing. In a window with a preview and a Fling button it reads as file transfer and delivers a useless string. The fallback stays CLI-only. |
+| Balloon tips rather than Windows toast APIs | Toasts from an unpackaged .NET app require an AppUserModelID and a Start Menu shortcut before rendering. `NotifyIcon.ShowBalloonTip` is surfaced as a real toast on Windows 10/11 with no dependencies. Revisit if notification action buttons are needed. |
+| Send notifications default to failures-only | A success toast per send is noise on a tool used many times a day. Success is signalled by a brief tray icon change; the mode is configurable (Always / Failures only / Never). |
+| Run-at-startup via `HKCU\...\Run`, state read live | User-scope, no admin, no COM shortcut. It is also what Task Manager's Startup tab controls, so caching the value would produce a checkbox that lies after the user disables it there. |
+| No local device rename in the GUI | Passive name sync overwrites the stored name from `/clip` and `/ping` responses, so a PC-side rename is clobbered on the next send. Renaming belongs on the phone. |
+| Reachability and discovery poll only while the Device manager is open | A tray app pinging a phone all day is a battery cost with no user-visible benefit outside that window. |
 | Passive device name sync | Names exchanged at pair time go stale if either side renames. PC → Phone: CLI sends `X-Fling-Name` header on `/clip` and `/ping` requests; phone updates stored PC name if it differs. Phone → PC: `/clip` and `/ping` responses include `"name"` field; CLI updates stored phone name if it differs. Discovery only handles case corrections (a full rename means the old name won't match the discovery response). Propagates on next natural interaction — no dedicated sync call. |
 
 ## Future Considerations
 
-- **Tray app**: GUI wrapper with clipboard watching (auto-sync mode), connection status, settings.
-- **Two-way sync**: Android sends clipboard back to PC.
+Deferred from the tray app's v1 (see `gui_progress.md` for what v1 must avoid foreclosing):
+
+- **Global hotkey**: Send the clipboard without opening a window. The auto-staged Fling window already reduces the common path to open-and-Enter, so this is a marginal gain over meaningful hotkey-registration and conflict-handling work.
+- **Clipboard watching (auto-sync)**: The largest safety surface in the design. Requires an explicitly armed mode, unmistakable state indication, sensitive-clipboard-format handling, and self-send suppression.
+- **Send history with re-send**: The phone side is deliberately transient; a PC-side history introduces its own retention and privacy questions.
+
+Longer-term, front-end independent:
+
+- **Two-way sync**: Android sends clipboard back to PC. Needs a listener on the PC, a new protocol direction, and a firewall prompt.
 - **HTTPS**: Self-signed certificate exchanged during pairing for encrypted transport.
+- **Cross-platform**: `Fling.Core` is platform-agnostic, but a port needs per-OS clipboard access (genuinely difficult on Linux across X11 and Wayland) and a `System.Drawing` replacement. Avalonia would be the GUI answer. No demand established.
+- **Additional image formats**: `.webp` is absent from the recognised image extensions and now common from browsers and screenshot tools; `.svg` currently passes the text check and would be sent as raw XML.
 - **Configurable file-copy exclusion on Explorer clipboard**: If user copies a file in Explorer, either skip silently or send the filename as text.
 - **Default device opt-in**: `fling send --default` to send to a designated default device without specifying its name. Deferred; currently requires explicit `--device <name>` or `--all`.
