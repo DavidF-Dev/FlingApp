@@ -77,21 +77,21 @@ public static class ConfigCommand
                 return 1;
             }
 
-            var config = store.Load();
+            var config = store.Update(c =>
+            {
+                if (maxSize is not null)
+                    c.MaxSizeMb = maxSize.Value;
 
-            if (maxSize is not null)
-                config.MaxSizeMb = maxSize.Value;
+                if (compress is not null)
+                    c.Compress = compress.Value;
 
-            if (compress is not null)
-                config.Compress = compress.Value;
+                if (log is not null)
+                    c.Log = log.Value;
 
-            if (log is not null)
-                config.Log = log.Value;
+                if (hostname is not null)
+                    c.HostName = hostname;
+            });
 
-            if (hostname is not null)
-                config.HostName = hostname;
-
-            store.Save(config);
             Console.WriteLine("Configuration updated.");
             PrintConfig(config);
             return 0;
@@ -113,10 +113,10 @@ public static class ConfigCommand
         command.SetAction((Func<ParseResult, int>)(parseResult =>
         {
             var name = parseResult.GetValue(nameArg);
-            var config = store.Load();
 
-            var removed = config.Devices.RemoveAll(d =>
-                d.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            var removed = 0;
+            store.Update(c => removed = c.Devices.RemoveAll(d =>
+                d.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
 
             if (removed == 0)
             {
@@ -124,7 +124,6 @@ public static class ConfigCommand
                 return 1;
             }
 
-            store.Save(config);
             Console.WriteLine($"Device '{name}' removed.");
             return 0;
         }));

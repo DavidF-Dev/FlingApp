@@ -21,6 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Fling.Core\Fling.Core.csproj" />
+    <ProjectReference Include="..\..\src\Fling.Windows\Fling.Windows.csproj" />
     <ProjectReference Include="..\..\src\Fling\Fling.csproj" />
   </ItemGroup>
 

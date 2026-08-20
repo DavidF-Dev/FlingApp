@@ -1,14 +1,17 @@
 using System.CommandLine;
-using System.Text;
 using Fling.Config;
 using Fling.Content;
 using Fling.Net;
+using Fling.Operations;
 
 namespace Fling.Commands;
 
 public static class SendCommand
 {
     public static Command Create(ConfigStore store, IClipboardReader clipboardReader, DiscoveryCache? discoveryCache = null, UdpDiscovery? udpDiscovery = null)
+        => Create(store, clipboardReader, new GdiImageEncoder(), discoveryCache, udpDiscovery);
+
+    public static Command Create(ConfigStore store, IClipboardReader clipboardReader, IImageEncoder imageEncoder, DiscoveryCache? discoveryCache = null, UdpDiscovery? udpDiscovery = null)
     {
         var clipboardOption = new Option<bool>("--clipboard")
         {
@@ -66,7 +69,6 @@ public static class SendCommand
 
             var config = store.Load();
 
-            // Resolve content
             var sourceCount = (useClipboard ? 1 : 0) + (imagePath is not null ? 1 : 0) + (text is not null ? 1 : 0) + (filePath is not null ? 1 : 0);
             if (sourceCount == 0)
             {
@@ -79,82 +81,25 @@ public static class SendCommand
                 return 1;
             }
 
-            string contentType;
-            byte[] rawBytes;
-
-            if (useClipboard)
+            var resolver = new ContentResolver(clipboardReader, imageEncoder);
+            ResolvedContent content;
+            try
             {
-                var content = clipboardReader.Read();
-                if (content is null)
-                {
-                    Console.Error.WriteLine("Clipboard is empty or contains unsupported content.");
-                    return 1;
-                }
-                contentType = content.ContentType;
-                rawBytes = content.Data;
+                content = useClipboard ? resolver.FromClipboard()
+                    : imagePath is not null ? resolver.FromImage(imagePath)
+                    : filePath is not null ? resolver.FromFile(filePath)
+                    : ContentResolver.FromText(text!);
             }
-            else if (imagePath is not null)
+            catch (ContentResolutionException ex)
             {
-                try
-                {
-                    rawBytes = ImageLoader.LoadAsPng(imagePath);
-                }
-                catch (FileNotFoundException)
-                {
-                    Console.Error.WriteLine($"Image file not found: {imagePath}");
-                    return 1;
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"Could not load image: {ex.Message}");
-                    return 1;
-                }
-                contentType = "image/png";
-            }
-            else if (filePath is not null)
-            {
-                try
-                {
-                    var fileContent = FileContentResolver.Resolve(filePath);
-                    switch (fileContent.Kind)
-                    {
-                        case FileContentKind.Image:
-                            rawBytes = ImageLoader.LoadAsPng(fileContent.Path);
-                            contentType = "image/png";
-                            break;
-                        case FileContentKind.Text:
-                            rawBytes = File.ReadAllBytes(fileContent.Path);
-                            contentType = "text/plain";
-                            break;
-                        default:
-                            rawBytes = Encoding.UTF8.GetBytes(Path.GetFullPath(fileContent.Path));
-                            contentType = "text/plain";
-                            break;
-                    }
-                }
-                catch (FileNotFoundException)
-                {
-                    Console.Error.WriteLine($"File not found: {filePath}");
-                    return 1;
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"Could not read file: {ex.Message}");
-                    return 1;
-                }
-            }
-            else
-            {
-                rawBytes = Encoding.UTF8.GetBytes(text!);
-                contentType = "text/plain";
+                Console.Error.WriteLine(ex.Message);
+                return 1;
             }
 
-            // Encode
-            var encoder = new ContentEncoder(config.Compress, config.MaxSizeMb);
             ClipPayload payload;
             try
             {
-                payload = encoder.Encode(contentType, rawBytes);
+                payload = SendOperation.Encode(config, content);
             }
             catch (ContentTooLargeException ex)
             {
@@ -165,7 +110,7 @@ public static class SendCommand
             if (verbose || dryRun)
             {
                 Console.WriteLine($"Content type: {payload.Type}");
-                Console.WriteLine($"Raw size:     {rawBytes.Length:N0} bytes");
+                Console.WriteLine($"Raw size:     {content.Data.Length:N0} bytes");
                 Console.WriteLine($"Encoded size: {payload.Data.Length:N0} chars (base64)");
                 Console.WriteLine($"Compressed:   {payload.Compressed}");
             }
@@ -176,15 +121,14 @@ public static class SendCommand
                 return 0;
             }
 
-            // Resolve devices
             List<DeviceConfig> devices;
-            DeviceResolver resolver;
+            DeviceResolver deviceResolver;
             try
             {
-                resolver = discoveryCache is not null && udpDiscovery is not null
+                deviceResolver = discoveryCache is not null && udpDiscovery is not null
                     ? new DeviceResolver(config, store, discoveryCache, udpDiscovery)
                     : new DeviceResolver(config);
-                devices = resolver.Resolve(deviceName, all);
+                devices = deviceResolver.Resolve(deviceName, all);
             }
             catch (DeviceResolutionException ex)
             {
@@ -192,52 +136,33 @@ public static class SendCommand
                 return 1;
             }
 
-            await resolver.ResolveAddressesAsync(devices, ct);
+            await deviceResolver.ResolveAddressesAsync(devices, ct);
 
-            var pcName = string.IsNullOrEmpty(config.HostName) ? Environment.MachineName : config.HostName;
+            var results = await new SendOperation(store).SendAsync(
+                config,
+                devices,
+                payload,
+                onSending: verbose
+                    ? device => Console.WriteLine($"Sending to {device.Name} ({device.Host}:{device.Port})...")
+                    : null,
+                ct);
 
-            // Send
-            using var client = new FlingHttpClient();
-            var tasks = devices.Select(async device =>
-            {
-                if (verbose)
-                    Console.WriteLine($"Sending to {device.Name} ({device.Host}:{device.Port})...");
-
-                var result = await client.SendClipAsync(device.Host, device.Port, device.ApiKey, payload, pcName, ct);
-                return (device, result);
-            });
-
-            var results = await Task.WhenAll(tasks);
-
-            var configChanged = false;
             var hasAuthFailure = false;
             var hasNetworkFailure = false;
-            foreach (var (device, result) in results)
+            foreach (var result in results)
             {
                 if (result.Success)
                 {
-                    if (result.DeviceName is not null && result.DeviceName != device.Name)
-                    {
-                        device.Name = result.DeviceName;
-                        configChanged = true;
-                    }
-
-                    Console.WriteLine($"Sent to '{device.Name}'.");
+                    Console.WriteLine($"Sent to '{result.Device.Name}'.");
                 }
                 else
                 {
-                    Console.Error.WriteLine($"Failed to send to '{device.Name}': {result.Error}");
+                    Console.Error.WriteLine($"Failed to send to '{result.Device.Name}': {result.Error}");
                     if (result.AuthFailed)
                         hasAuthFailure = true;
                     else
                         hasNetworkFailure = true;
                 }
-            }
-
-            if (configChanged)
-            {
-                try { store.Save(config); }
-                catch { }
             }
 
             if (hasAuthFailure) return 3;

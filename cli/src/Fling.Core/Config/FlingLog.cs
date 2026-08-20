@@ -4,7 +4,7 @@ namespace Fling.Config;
 /// Append-only file log at %APPDATA%\Fling\fling.log.
 /// One line per invocation. Disabled unless config.Log is true.
 /// </summary>
-internal sealed class FlingLog
+public sealed class FlingLog
 {
     private const int MaxLines = 2000;
     private const int TrimToLines = 1000;

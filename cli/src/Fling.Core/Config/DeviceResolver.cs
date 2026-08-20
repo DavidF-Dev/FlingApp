@@ -100,13 +100,30 @@ public sealed class DeviceResolver
         if (device.Host == host && device.Port == port)
             return;
 
+        var name = device.Name;
         device.Host = host;
         device.Port = port;
 
-        if (_store is not null)
+        if (_store is null)
+            return;
+
+        // Persist against a freshly loaded config rather than the copy this resolver was
+        // handed, so a device paired by another process meanwhile is not erased.
+        try
         {
-            try { _store.Save(_config); }
-            catch { }
+            _store.Update(fresh =>
+            {
+                var match = fresh.Devices.Find(d => d.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                if (match is null)
+                    return;
+
+                match.Host = host;
+                match.Port = port;
+            });
+        }
+        catch
+        {
+            // A stale stored address is recoverable; failing the command is not.
         }
     }
 }

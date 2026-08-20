@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Fling.Core/Fling.Core.csproj" />
+    <Project Path="src/Fling.Windows/Fling.Windows.csproj" />
     <Project Path="src/Fling/Fling.csproj" />
   </Folder>
   <Folder Name="/tests/">

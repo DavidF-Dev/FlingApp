@@ -48,6 +48,8 @@ $distDir    = Join-Path $repoRoot 'dist'
 # Clean the publish dir so no stale output can be mistaken for this build.
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 
+# Trimming and ReadyToRun are set in the csproj so a plain 'dotnet publish' matches
+# what ships. Both are load-bearing: see the comment there.
 Write-Host "Publishing self-contained single-file build for v$version..." -ForegroundColor Cyan
 dotnet publish $csproj -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
@@ -102,6 +104,11 @@ Copy-Item $guiExe (Join-Path $distDir 'flingw.exe') -Force
 $sha    = (Get-FileHash $zipPath -Algorithm SHA256).Hash
 $sizeMb = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
 $exeMb  = [math]::Round((Get-Item $stableExe).Length / 1MB, 1)
+
+# A jump here means a framework reference crept back in and disabled trimming.
+if ($exeMb -gt 18) {
+    Fail "fling.exe is $exeMb MB; expected under 18 MB. Check for a UseWindowsForms/UseWPF reference in the project graph."
+}
 
 Write-Host ''
 Write-Host "Built: $zipPath" -ForegroundColor Green

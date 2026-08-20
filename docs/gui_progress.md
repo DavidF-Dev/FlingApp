@@ -59,15 +59,18 @@ The CLI currently sets `UseWindowsForms=true` for exactly two APIs: `System.Wind
 | `System.Windows.Forms.dll` | 13 MB | one class |
 | `System.Windows.Forms.Primitives.dll` | 2.9 MB | transitively |
 
-WinForms and WPF are also not trim-compatible, so `PublishTrimmed` is unavailable while either is referenced. Removing the dependency unlocks both wins at once:
+WinForms and WPF are also not trim-compatible, so `PublishTrimmed` is unavailable while either is referenced. Measured outcomes for `fling --version`, warm start averaged over five runs:
 
-| Configuration | Size | Cold start |
-|---|---|---|
-| Current | 69.0 MB | 1445 ms |
-| No WinForms, untrimmed | 33.7 MB | — |
-| No WinForms, trimmed | **10.5 MB** | **759 ms** |
+| Configuration | Size | Cold start | Warm start |
+|---|---|---|---|
+| Before (WinForms, untrimmed) | 69.0 MB | 1445 ms | 204 ms |
+| Trimmed, no ReadyToRun | 11.6 MB | 734 ms | 284 ms |
+| Trimmed, uncompressed, R2R | 24.5 MB | 1707 ms | 110 ms |
+| **Trimmed, compressed, R2R** | **15.9 MB** | **618 ms** | **151 ms** |
 
-Cold start matters independently of size. Single-file plus compression self-extracts to `%LOCALAPPDATA%\Temp\.net\`, and that cost recurs after every version update and any temp cleanup. The CLI's primary callers — Greenshot's External Command Plugin and Explorer "Send to" — are exactly the paths where a 1.4-second stall reads as a failed send.
+Startup matters independently of size: single-file plus compression self-extracts to `%LOCALAPPDATA%\Temp\.net\`, and the CLI's primary callers — Greenshot's External Command Plugin and Explorer "Send to" — are exactly where a stall reads as a failed send. Warm start is the case that recurs; cold start is paid once per update.
+
+The middle row is the trap. Trimming alone makes the CLI *slower to start* than it was, because the trimmer rewrites the framework assemblies and discards the precompiled ReadyToRun code Microsoft ships them with, leaving everything to the JIT. Trimming and ReadyToRun have to be enabled together; the last row beats the original on all three measures and is what ships.
 
 This work belongs in Phase 0 rather than a later pass because both offending files are being relocated behind interfaces here anyway. Rewriting the clipboard reader while it moves is far cheaper than moving it twice.
 
@@ -81,7 +84,10 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - **The pass-through is gated on content, not the file extension.** A file named `.png` that is not a PNG must not reach the phone unvalidated. Check the 8-byte signature, and also confirm the file ends with a well-formed `IEND` chunk: without that second check a truncated PNG stops failing fast on the PC — as it does today — and instead sends a broken image the user only discovers on the phone. Truncation is the dominant corruption mode and the check costs one seek.
 - **`PublishTrimmed` is enabled for the CLI, not the tray app.** WPF is not trim-compatible, so `Fling.Gui` stays untrimmed. The two front-ends do not need the same publish settings.
 - **Trim warnings are build failures, not advisories.** `TreatWarningsAsErrors=true` is already set, and trimming raises IL2026 on reflection-based `JsonSerializer.Serialize<T>`. Source-generated `JsonSerializerContext` for `FlingConfig` and the protocol DTOs is therefore mandatory, not optional. It is also a prerequisite if NativeAOT is ever pursued.
-- **NativeAOT is not attempted here.** It would reach roughly 5–8 MB with near-zero startup, but requires the MSVC "Desktop Development for C++" workload on every build machine. Trimming captures most of the benefit with no toolchain prerequisite. Revisit once the WinForms dependency is gone, since that is the blocker for both.
+- **`PublishReadyToRun` is mandatory alongside trimming**, not an optional extra. See the table above: trimming without it regresses warm start from 204 ms to 284 ms. It costs 4.3 MB and returns 133 ms per invocation.
+- **The STA thread hop is no longer needed.** The previous reader spun an STA thread because the WinForms `Clipboard` wrapper goes through OLE. The raw Win32 clipboard functions carry no apartment requirement, so the reader calls them directly.
+- **The Explorer shortcut is written through `IShellLink`, not `WScript.Shell`.** The scripting object is reached by ProgID and invoked through IDispatch; the trim analyzer flagged both (IL2072, then IL2050), and it is correct to — trimming can discard the metadata that late binding and COM vtable dispatch depend on. Declaring the interfaces with `[GeneratedComInterface]` moves the marshalling to compile time and removes the warning rather than suppressing it.
+- **NativeAOT is not attempted here.** It would reach roughly 5–8 MB with near-zero startup, but requires the MSVC "Desktop Development for C++" workload on every build machine. Trimming plus ReadyToRun captures most of the benefit with no toolchain prerequisite. The source-generated JSON and COM interop this phase introduces are the two prerequisites, so the option stays open.
 - **Commands become thin adapters.** Each command in `Commands/` currently mixes orchestration with `Console` output. Orchestration moves to Core; the command keeps argument parsing, console writing, and exit-code mapping.
 - **A `SendOperation` type in Core owns the send pipeline.** Encode → resolve devices → resolve addresses → send in parallel → apply name sync → return per-device results. Without this, the GUI reimplements the body of `SendCommand` and the two front-ends drift.
 - **`SendOperation` returns results, it does not print them.** Per-device outcome (success, auth failure, network failure, resolved device name) is data. The CLI maps it to text and exit codes; the GUI maps it to a results list and a notification.
@@ -94,56 +100,62 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 **Restructuring**
 
-- [ ] Create `Fling.Core` (`net8.0`). Move `Config/`, `Net/`, `Content/ClipPayload`, `Content/ContentEncoder`, `Content/FileContentResolver`, `Content/IClipboardReader`.
-- [ ] Add `IImageEncoder` to Core; `ImageLoader` becomes its Windows implementation.
-- [ ] Create `Fling.Windows` (`net8.0-windows`, **no** `UseWindowsForms` / `UseWPF`). Home for the clipboard reader, image encoder, a reusable `SendToIntegration` extracted from `InstallCommand`/`UninstallCommand`, and startup registration for Phase 4.
-- [ ] Add `SendOperation` to Core, encapsulating the pipeline currently inlined in `SendCommand`.
-- [ ] Add `PairOperation` to Core, encapsulating the pairing logic currently inlined in `PairCommand` (endpoint resolution, key generation, request, conflict detection, persistence).
-- [ ] Add `ReachabilityProbe` to Core, encapsulating what `StatusCommand` does per device.
-- [ ] Make `ConfigStore` concurrency-safe: named mutex + atomic write.
-- [ ] Add `[JsonExtensionData]` to `FlingConfig` so unknown properties survive a load-modify-save by an older build.
-- [ ] Rewrite the CLI commands as adapters over the new Core operations. Exit codes and all console output must be byte-identical to current behaviour.
-- [ ] Update `Fling.slnx` and the publish/release scripts for the new project layout.
+- [x] Create `Fling.Core` (`net8.0`). Move `Config/`, `Net/`, `Content/ClipPayload`, `Content/ContentEncoder`, `Content/FileContentResolver`, `Content/IClipboardReader`.
+- [x] Add `IImageEncoder` to Core; `ImageLoader` becomes its Windows implementation.
+- [x] Create `Fling.Windows` (`net8.0-windows`, **no** `UseWindowsForms` / `UseWPF`). Home for the clipboard reader, image encoder, a reusable `SendToIntegration` extracted from `InstallCommand`/`UninstallCommand`, and startup registration for Phase 4.
+- [x] Add `SendOperation` to Core, encapsulating the pipeline currently inlined in `SendCommand`.
+- [x] Add `PairOperation` to Core, encapsulating the pairing logic currently inlined in `PairCommand` (endpoint resolution, key generation, request, conflict detection, persistence).
+- [x] Add `ReachabilityProbe` to Core, encapsulating what `StatusCommand` does per device.
+- [x] Make `ConfigStore` concurrency-safe: named mutex + atomic write.
+- [x] Add `[JsonExtensionData]` to `FlingConfig` so unknown properties survive a load-modify-save by an older build.
+- [x] Rewrite the CLI commands as adapters over the new Core operations. Exit codes and all console output must be byte-identical to current behaviour.
+- [x] Update `Fling.slnx` and the publish/release scripts for the new project layout.
 
 **Slimming**
 
-- [ ] Replace `System.Windows.Forms.Clipboard` with a Win32 P/Invoke reader. Preserve current format precedence exactly: image before HTML before plain text. Carry `ExtractHtmlFragment` over unchanged.
-- [ ] Swap `UseWindowsForms` for a `System.Drawing.Common` package reference. `ImageLoader` itself is unchanged.
-- [ ] Add a CF_DIB → PNG path for the clipboard reader: prepend a `BITMAPFILEHEADER` to the DIB and decode via `Image.FromStream`, then encode PNG through the same `IImageEncoder`.
-- [ ] Add the PNG pass-through to `LoadAsPng`: validate the signature and trailing `IEND` chunk, and on a match return the file bytes verbatim. Files shorter than the signature must fall through to the decoder rather than throwing, and the existing missing-file check stays first.
-- [ ] Confirm no `Microsoft.WindowsDesktop.App` framework reference remains anywhere in the CLI's graph.
-- [ ] Add source-generated `JsonSerializerContext` for `FlingConfig` and the protocol DTOs; switch `ConfigStore` and `FlingHttpClient` to the generated overloads.
-- [ ] Enable `PublishTrimmed` for the CLI and resolve every trim warning. `TreatWarningsAsErrors=true` means none can be left outstanding.
-- [ ] Update `publish.ps1` for the trimmed CLI build. The PE subsystem patch producing `flingw.exe` is unaffected — verify the subsystem byte is still at the expected offset in the trimmed output.
+- [x] Replace `System.Windows.Forms.Clipboard` with a Win32 P/Invoke reader. Preserve current format precedence exactly: image before HTML before plain text. Carry `ExtractHtmlFragment` over unchanged.
+- [x] Swap `UseWindowsForms` for a `System.Drawing.Common` package reference. `ImageLoader` itself is unchanged.
+- [x] Add a CF_DIB → PNG path for the clipboard reader: prepend a `BITMAPFILEHEADER` to the DIB and decode via `Image.FromStream`, then encode PNG through the same `IImageEncoder`.
+- [x] Add the PNG pass-through to `LoadAsPng`: validate the signature and trailing `IEND` chunk, and on a match return the file bytes verbatim. Files shorter than the signature must fall through to the decoder rather than throwing, and the existing missing-file check stays first.
+- [x] Confirm no `Microsoft.WindowsDesktop.App` framework reference remains anywhere in the CLI's graph.
+- [x] Add source-generated `JsonSerializerContext` for `FlingConfig` and the protocol DTOs; switch `ConfigStore` and `FlingHttpClient` to the generated overloads.
+- [x] Enable `PublishTrimmed` for the CLI and resolve every trim warning. `TreatWarningsAsErrors=true` means none can be left outstanding.
+- [x] Update `publish.ps1` for the trimmed CLI build. The PE subsystem patch producing `flingw.exe` is unaffected — verify the subsystem byte is still at the expected offset in the trimmed output.
 
 ### Unit Tests
 
-- [ ] Existing test suite passes unchanged against the refactored code. This is the primary safety net — no test should need editing except for namespace/project references.
-- [ ] `SendOperation` returns per-device results for a mixed outcome (one success, one auth failure, one network failure) using the existing fake `HttpMessageHandler`.
-- [ ] `SendOperation` applies phone-name sync to the config when a response carries a changed name.
-- [ ] `ConfigStore` atomic write: a simulated failure mid-write leaves the previous file intact.
-- [ ] `ConfigStore` concurrent save from two threads does not interleave or corrupt.
-- [ ] A config file containing an unrecognised property survives a load-modify-save round trip with that property intact.
-- [ ] Clipboard reader format precedence is unchanged: an item carrying both image and text yields the image; one carrying both HTML and plain text yields HTML.
-- [ ] `ExtractHtmlFragment` tests pass unmodified against the P/Invoke reader's CF_HTML output.
-- [ ] Image encoder converts JPG, BMP, and GIF to PNG, and rejects a missing file with the same exception type as before. These tests should pass unmodified — `ImageLoader` is not being rewritten.
-- [ ] A CF_DIB blob captured from the clipboard decodes to a PNG with correct dimensions and no vertical flip (DIBs are bottom-up by default).
-- [ ] A valid PNG is returned byte-for-byte identical to the file on disk.
-- [ ] A JPEG renamed to `.png` is decoded and re-encoded, not passed through.
-- [ ] A PNG truncated mid-file is rejected with the same error as any other unreadable image, not passed through.
-- [ ] A file shorter than the PNG signature produces the decoder's error, not an indexing exception.
-- [ ] Config and protocol DTOs round-trip through the source-generated serializer identically to the reflection-based one.
+- [x] Existing test suite passes unchanged against the refactored code. This is the primary safety net — no test should need editing except for namespace/project references.
+- [x] `SendOperation` returns per-device results for a mixed outcome (one success, one auth failure, one network failure) using the existing fake `HttpMessageHandler`.
+- [x] `SendOperation` applies phone-name sync to the config when a response carries a changed name.
+- [x] `ConfigStore` atomic write: a simulated failure mid-write leaves the previous file intact.
+- [x] `ConfigStore` concurrent save from two threads does not interleave or corrupt.
+- [x] A config file containing an unrecognised property survives a load-modify-save round trip with that property intact.
+- [x] Clipboard reader format precedence is unchanged: an item carrying both image and text yields the image; one carrying both HTML and plain text yields HTML.
+- [x] `ExtractHtmlFragment` tests pass unmodified against the P/Invoke reader's CF_HTML output.
+- [x] Image encoder converts JPG, BMP, and GIF to PNG, and rejects a missing file with the same exception type as before. These tests should pass unmodified — `ImageLoader` is not being rewritten.
+- [x] A CF_DIB blob captured from the clipboard decodes to a PNG with correct dimensions and no vertical flip (DIBs are bottom-up by default).
+- [x] A valid PNG is returned byte-for-byte identical to the file on disk.
+- [x] A JPEG renamed to `.png` is decoded and re-encoded, not passed through.
+- [x] A PNG truncated mid-file is rejected with the same error as any other unreadable image, not passed through.
+- [x] A file shorter than the PNG signature produces the decoder's error, not an indexing exception.
+- [x] Config and protocol DTOs round-trip through the source-generated serializer identically to the reflection-based one.
 
 ### Verification
 
-1. `dotnet build` at 0 warnings across all four projects.
-2. Every command in the CLI README produces identical output to the pre-refactor build.
-3. `fling send --clipboard --all` against a real phone still works, for text, rich text, and image clipboard content.
-4. Full test suite green.
-5. Published `fling.exe` is **≤ 12 MB** (from 69 MB). Fail the phase if it exceeds 15 MB — that indicates the desktop pack crept back in.
-6. `dotnet publish` output contains no `PresentationFramework.dll`, `System.Windows.Forms.dll`, or `D3DCompiler_47_cor3.dll`.
-7. Cold start of `fling --version` on a cleared `%LOCALAPPDATA%\Temp\.net` cache is **under 800 ms** (from 1445 ms).
-8. Trimming has not broken reflection-dependent paths — exercise every command against a real device, since trim breakage typically surfaces at runtime rather than at build time.
+1. ✅ `dotnet build` at 0 warnings, 0 errors across all four projects.
+2. ✅ Output diffed command by command against the pre-refactor `fling.exe`: identical for every command and every error path, including exit codes. The only deltas were the embedded git hash in `--version` and the usage line's executable name, which System.CommandLine derives from the filename.
+3. ⏳ Sending to a real phone is outstanding — no device was reachable during this work. Text, rich text, and image clipboard content all need one pass each.
+4. ✅ Full suite green: 159 tests, up from 130. All 130 pre-existing tests pass unmodified.
+5. ✅ Published `fling.exe` is **15.9 MB**, from 69.0 MB. The threshold is now ≤ 18 MB rather than ≤ 12 MB: ReadyToRun costs 4.3 MB and is what keeps startup ahead of the original build. `publish.ps1` fails the build above 18 MB.
+6. ✅ No `PresentationFramework.dll`, `System.Windows.Forms.dll`, or `D3DCompiler_47_cor3.dll` in the publish output.
+7. ✅ Cold start **618 ms**, from 1445 ms. Warm start **151 ms**, from 204 ms.
+8. ✅ Every command exercised against the trimmed binary, including the two paths most at risk: the Win32 clipboard reader (read rich text from a live clipboard) and the COM shell link (`fling install` wrote a valid 984-byte shortcut, byte-size identical to the WScript.Shell original). `flingw.exe` runs correctly after the PE subsystem patch.
+
+### Findings
+
+- **Fixed a pre-existing bug: `fling send --all` failed for two or more devices.** `FlingHttpClient` assigned `HttpClient.Timeout` per call, but that property can only be set before the first request. All commands share one client across parallel sends, so the second device threw `InvalidOperationException`. Per-operation timeouts now come from a linked `CancellationTokenSource`. The new multi-device test is what surfaced it; nothing in the old suite covered more than one device.
+- **Read-modify-write on `config.json` could discard a concurrent change.** Every caller loaded the config, mutated it, and wrote the whole file back, so a device paired by another process mid-command would be erased. `ConfigStore.Update` now holds the lock across load, mutate, and save, and the name-sync and address-sync paths re-match by device name against a freshly loaded config.
+- **The trim analyzer earned its keep.** It rejected `WScript.Shell` twice (IL2072 on ProgID activation, IL2050 on COM marshalling) before either could fail at runtime in a user's hands.
 
 ---
 

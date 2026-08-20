@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cli:
-    name: CLI (build & test)
+  pc:
+    name: PC (build & test)
     runs-on: windows-latest
 
     steps:

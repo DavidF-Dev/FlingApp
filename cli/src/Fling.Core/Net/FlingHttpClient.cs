@@ -1,46 +1,49 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Fling.Content;
 
 namespace Fling.Net;
 
 public sealed class FlingHttpClient : IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
+    private static readonly TimeSpan PairTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(3);
 
     private readonly HttpClient _http;
 
     public FlingHttpClient(HttpMessageHandler? handler = null)
     {
         _http = handler is not null ? new HttpClient(handler) : new HttpClient();
+
+        // Per-operation timeouts are applied with a linked token instead. HttpClient.Timeout
+        // can only be assigned before the first request, so a shared client sending to
+        // several devices at once cannot use it.
+        _http.Timeout = Timeout.InfiniteTimeSpan;
     }
 
     public async Task<PairResponse> PairAsync(string host, int port, string pcName, string apiKey, CancellationToken ct = default)
     {
-        _http.Timeout = TimeSpan.FromSeconds(60);
+        using var timeout = WithTimeout(PairTimeout, ct);
 
         var request = new PairRequest { Name = pcName, Key = apiKey };
         var url = $"http://{FormatHost(host)}:{port}/pair";
 
-        var response = await _http.PostAsJsonAsync(url, request, JsonOptions, ct);
+        var response = await _http.PostAsJsonAsync(url, request, ProtocolJsonContext.Default.PairRequest, timeout.Token);
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<PairResponse>(JsonOptions, ct)
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.PairResponse, timeout.Token)
                ?? throw new InvalidOperationException("Empty response from device.");
     }
 
     public async Task<SendResult> SendClipAsync(string host, int port, string apiKey, ClipPayload payload, string? pcName = null, CancellationToken ct = default)
     {
-        _http.Timeout = TimeSpan.FromSeconds(10);
+        using var timeout = WithTimeout(SendTimeout, ct);
 
         var url = $"http://{FormatHost(host)}:{port}/clip";
         var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
-            Content = JsonContent.Create(payload, options: JsonOptions),
+            Content = JsonContent.Create(payload, ProtocolJsonContext.Default.ClipPayload),
         };
         request.Headers.Add("X-Fling-Key", apiKey);
         if (pcName is not null)
@@ -49,7 +52,7 @@ public sealed class FlingHttpClient : IDisposable
         HttpResponseMessage response;
         try
         {
-            response = await _http.SendAsync(request, ct);
+            response = await _http.SendAsync(request, timeout.Token);
         }
         catch (TaskCanceledException)
         {
@@ -75,7 +78,7 @@ public sealed class FlingHttpClient : IDisposable
         string? deviceName = null;
         try
         {
-            var clipResponse = await response.Content.ReadFromJsonAsync<ClipResponse>(JsonOptions, ct);
+            var clipResponse = await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.ClipResponse, timeout.Token);
             deviceName = clipResponse?.Name;
         }
         catch { }
@@ -85,7 +88,7 @@ public sealed class FlingHttpClient : IDisposable
 
     public async Task<PingResponse> PingAsync(string host, int port, string apiKey, string? pcName = null, CancellationToken ct = default)
     {
-        _http.Timeout = TimeSpan.FromSeconds(3);
+        using var timeout = WithTimeout(PingTimeout, ct);
 
         var url = $"http://{FormatHost(host)}:{port}/ping";
         var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -93,11 +96,18 @@ public sealed class FlingHttpClient : IDisposable
         if (pcName is not null)
             request.Headers.Add("X-Fling-Name", pcName);
 
-        var response = await _http.SendAsync(request, ct);
+        var response = await _http.SendAsync(request, timeout.Token);
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<PingResponse>(JsonOptions, ct)
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.PingResponse, timeout.Token)
                ?? throw new InvalidOperationException("Empty response from device.");
+    }
+
+    private static CancellationTokenSource WithTimeout(TimeSpan timeout, CancellationToken ct)
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout);
+        return cts;
     }
 
     private static string FormatHost(string host) =>

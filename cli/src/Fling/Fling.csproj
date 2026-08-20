@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyVersion>1.0.0</AssemblyVersion>
@@ -17,8 +16,29 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!--
+    Trimming is only possible because no project in this graph references WinForms or
+    WPF; either would make the app untrimmable and add the whole desktop runtime pack.
+
+    ReadyToRun is required alongside it, not optional: trimming rewrites the framework
+    assemblies and discards the precompiled native code they ship with, so a trimmed
+    build with JIT-only startup is slower to start than an untrimmed one despite being
+    a fraction of the size.
+  -->
+  <PropertyGroup>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fling.Core\Fling.Core.csproj" />
+    <ProjectReference Include="..\Fling.Windows\Fling.Windows.csproj" />
   </ItemGroup>
 
 </Project>

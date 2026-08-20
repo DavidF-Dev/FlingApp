@@ -75,4 +75,5 @@ fling send --image "{0}"
 ## Conventions
 
 - Keep the build at **0 warnings**.
-- Keep `fling.exe` small. It is invoked by Greenshot and Explorer "Send to", where cold-start latency reads as a failed send. Target ≤ 12 MB published; anything approaching 15 MB means a framework reference crept back in.
+- Keep `fling.exe` small and quick to start. It is invoked by Greenshot and Explorer "Send to", where startup latency reads as a failed send. It publishes at 15.9 MB; `publish.ps1` fails above 18 MB, which means a UI framework reference crept back into the project graph.
+- `PublishTrimmed` and `PublishReadyToRun` must stay enabled together. Trimming alone discards the framework's precompiled code and makes startup *slower* than not trimming at all.

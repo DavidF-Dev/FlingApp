@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Fling.Config;
 using Fling.Net;
+using Fling.Operations;
 
 namespace Fling.Commands;
 
@@ -95,70 +96,38 @@ public static class PairCommand
             var pcName = nameOverride
                          ?? (string.IsNullOrEmpty(config.HostName) ? Environment.MachineName : config.HostName);
 
-            var existingByAddress = config.Devices.Find(d =>
-                d.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && d.Port == port);
-
-            if (existingByAddress is not null && !force)
+            // The address conflict is reported before the request so the user is not left
+            // waiting on an approval prompt for a pairing that cannot be stored.
+            if (!force && config.Devices.Exists(d =>
+                    d.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && d.Port == port))
             {
+                var existing = config.Devices.Find(d =>
+                    d.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && d.Port == port)!;
                 Console.Error.WriteLine(
-                    $"A device at {host}:{port} is already paired as '{existingByAddress.Name}'. Use --force to re-pair.");
+                    $"A device at {host}:{port} is already paired as '{existing.Name}'. Use --force to re-pair.");
                 return 1;
             }
-
-            var apiKey = ApiKeyGenerator.Generate();
 
             Console.WriteLine($"Pairing with {host}:{port} as '{pcName}'...");
             Console.WriteLine("Waiting for approval on the device...");
 
-            PairResponse response;
-            try
+            var outcome = await new PairOperation(store).ExecuteAsync(config, host, port, pcName, force, ct);
+
+            switch (outcome.Status)
             {
-                using var client = new FlingHttpClient();
-                response = await client.PairAsync(host, port, pcName, apiKey, ct);
+                case PairStatus.Accepted:
+                    Console.WriteLine($"Paired with '{outcome.DeviceName}' at {host}:{port}.");
+                    return 0;
+
+                case PairStatus.TimedOut:
+                case PairStatus.ConnectionFailed:
+                    Console.Error.WriteLine(outcome.Error);
+                    return 2;
+
+                default:
+                    Console.Error.WriteLine(outcome.Error);
+                    return 1;
             }
-            catch (TaskCanceledException)
-            {
-                Console.Error.WriteLine("Pairing timed out. Make sure the Fling app is running on the device.");
-                return 2;
-            }
-            catch (HttpRequestException ex)
-            {
-                Console.Error.WriteLine($"Could not connect to {host}:{port}: {ex.Message}");
-                return 2;
-            }
-
-            if (response.Status != "accepted")
-            {
-                Console.Error.WriteLine("Pairing was rejected on the device.");
-                return 1;
-            }
-
-            var existingByName = config.Devices.Find(d =>
-                d.Name.Equals(response.Name, StringComparison.OrdinalIgnoreCase));
-
-            if (existingByName is not null && !ReferenceEquals(existingByName, existingByAddress) && !force)
-            {
-                Console.Error.WriteLine(
-                    $"A device named '{response.Name}' already exists at {existingByName.Host}:{existingByName.Port}. Use --force to re-pair.");
-                return 1;
-            }
-
-            // Remove any existing entries that match by address or name
-            config.Devices.RemoveAll(d =>
-                (d.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && d.Port == port) ||
-                d.Name.Equals(response.Name, StringComparison.OrdinalIgnoreCase));
-
-            config.Devices.Add(new DeviceConfig
-            {
-                Name = response.Name,
-                Host = host,
-                Port = port,
-                ApiKey = apiKey,
-            });
-
-            store.Save(config);
-            Console.WriteLine($"Paired with '{response.Name}' at {host}:{port}.");
-            return 0;
         }));
 
         return command;
