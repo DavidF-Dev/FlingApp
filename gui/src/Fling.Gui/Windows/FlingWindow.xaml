@@ -1,12 +1,113 @@
 <Window x:Class="Fling.Gui.Windows.FlingWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Fling.Gui.Windows"
         Title="Fling"
-        Width="520" Height="420"
-        WindowStartupLocation="CenterScreen">
-    <Grid Margin="24">
-        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center"
-                   TextAlignment="Center" TextWrapping="Wrap" Opacity="0.6"
-                   Text="Content staging arrives in Phase 3." />
+        Width="540" Height="520" MinWidth="420" MinHeight="380"
+        WindowStartupLocation="CenterScreen"
+        AllowDrop="True">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Source and preview summary -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="{Binding SourceLabel}" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Column="1" Text="{Binding PreviewSummary}" Opacity="0.6" Margin="12,0,0,0" />
+        </Grid>
+
+        <!-- Preview -->
+        <Border Grid.Row="1" BorderThickness="1" CornerRadius="3"
+                BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
+            <Grid>
+                <!-- Nothing staged -->
+                <TextBlock x:Name="EmptyPreview" Margin="24" TextWrapping="Wrap" TextAlignment="Center"
+                           Visibility="{Binding ShowEmptyPreview, Converter={StaticResource BoolToVisibility}}"
+                           VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.6"
+                           Text="Copy something, drop a file here, or choose one below." />
+
+                <!-- Text and rich text: editable before sending -->
+                <TextBox x:Name="TextPreview" AcceptsReturn="True" AcceptsTab="True"
+                         TextWrapping="Wrap" BorderThickness="0" Padding="8"
+                         VerticalScrollBarVisibility="Auto"
+                         Text="{Binding EditableText, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="{Binding IsText, Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- Image -->
+                <Image x:Name="ImagePreview" Margin="8" Stretch="Uniform" StretchDirection="DownOnly"
+                       Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+        </Border>
+
+        <!-- Status / rejection / oversize -->
+        <TextBlock Grid.Row="2" x:Name="StatusText" Margin="0,8,0,0" TextWrapping="Wrap"
+                   Text="{Binding StatusMessage}" Opacity="0.75">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding StatusMessage}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
+        <!-- Per-device results -->
+        <ItemsControl Grid.Row="3" x:Name="ResultsList" ItemsSource="{Binding Results}" Margin="0,8,0,0">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Margin="0,2" TextWrapping="Wrap">
+                        <Run Text="{Binding DeviceName, Mode=OneWay}" FontWeight="SemiBold" />
+                        <Run Text="{Binding Outcome, Mode=OneWay}" />
+                    </TextBlock>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Actions -->
+        <Grid Grid.Row="4" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" Content="Choose file…" Padding="12,4" Click="OnChooseFileClicked" />
+
+
+            <ComboBox Grid.Column="3" x:Name="TargetPicker" MinWidth="150" Margin="0,0,8,0"
+                      VerticalContentAlignment="Center"
+                      ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}"
+                      DisplayMemberPath="Label" />
+
+            <Button Grid.Column="4" x:Name="SendButton" Content="Fling!" Padding="20,4" IsDefault="True"
+                    Click="OnSendClicked" IsEnabled="{Binding CanSend}"
+                    Visibility="{Binding IsSending, Converter={StaticResource InverseBoolToVisibility}}" />
+
+            <Button Grid.Column="4" x:Name="CancelButton" Content="Cancel" Padding="20,4"
+                    Click="OnCancelSendClicked"
+                    Visibility="{Binding IsSending, Converter={StaticResource BoolToVisibility}}" />
+        </Grid>
     </Grid>
 </Window>

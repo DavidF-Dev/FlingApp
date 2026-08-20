@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using Fling.Config;
 using Fling.Gui.Tray;
 using Fling.Gui.Windows;
 
@@ -25,12 +26,27 @@ public partial class App : Application
 
         _windows = new WindowManager();
         _tray = new TrayIconHost(new TrayMenuActions(
-            OpenFling: () => _windows.Show<FlingWindow>(),
+            OpenFling: OpenFling,
             OpenDeviceManager: () => _windows.Show<DeviceManagerWindow>(),
             OpenSettings: () => _windows.Show<SettingsWindow>(),
             Quit: Shutdown));
 
-        _instance.ListenForActivation(() => Dispatcher.Invoke(() => _windows.Show<FlingWindow>()));
+        _instance.ListenForActivation(() => Dispatcher.Invoke(OpenFling));
+    }
+
+    /// <summary>
+    /// Opens the send window, or the device manager when there is nothing to send to —
+    /// a window that cannot do anything is worse than the one that explains why.
+    /// </summary>
+    private void OpenFling()
+    {
+        if (new ConfigStore().Load().Devices.Count == 0)
+        {
+            _windows!.Show<DeviceManagerWindow>();
+            return;
+        }
+
+        _windows!.Show<FlingWindow>();
     }
 
     /// <summary>

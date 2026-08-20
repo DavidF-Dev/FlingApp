@@ -157,8 +157,9 @@ public sealed class SendCommandTests : IDisposable
 
     private sealed class FakeClipboard : IClipboardReader
     {
-        private readonly ClipboardContent? _content;
-        public FakeClipboard(ClipboardContent? content) => _content = content;
-        public ClipboardContent? Read() => _content;
+        private readonly ClipboardReadResult _result;
+        public FakeClipboard(ClipboardContent? content, bool isProtected = false) =>
+            _result = new ClipboardReadResult(content, isProtected);
+        public ClipboardReadResult Read() => _result;
     }
 }

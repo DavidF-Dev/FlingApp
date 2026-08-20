@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- `send --clipboard` sent rich-text markup instead of the plain text every other application shows. Copying one word out of a syntax-highlighted view arrived on the phone as hundreds of characters of styling, because the phone pastes what it receives as literal text. Plain text is now preferred whenever the clipboard offers it; markup is sent only when there is no alternative.
 - Cancelling a pairing is no longer reported as a timeout.
 
 ## [1.0.1] - 2026-08-20

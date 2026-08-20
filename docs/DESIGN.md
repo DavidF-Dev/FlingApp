@@ -288,8 +288,8 @@ Absent by design: `runAtStartup`. `HKCU\Software\Microsoft\Windows\CurrentVersio
 
 | Type | MIME | Notes |
 |------|------|-------|
-| Plain text | `text/plain` | GZip compressed in transit |
-| Rich text | `text/html` | GZip compressed in transit |
+| Plain text | `text/plain` | GZip compressed in transit. Preferred whenever the clipboard offers it. |
+| Rich text | `text/html` | GZip compressed in transit. Only sent when the source offers no plain-text alternative — the phone pastes it as literal markup. |
 | Image | `image/png` | Converted to PNG before sending if needed |
 
 ### Explicitly Excluded
@@ -323,6 +323,7 @@ Absent by design: `runAtStartup`. `HKCU\Software\Microsoft\Windows\CurrentVersio
 | Greenshot uses `send --image "{0}"`, no bare positional shorthand | One-time config; adding file-path detection adds complexity for no real UX gain. |
 | Opt-in file logging via `config.log` | Logs each invocation (args, exit code, error message) to `%APPDATA%\Fling\fling.log`. Off by default. Essential for debugging third-party callers (e.g., Greenshot) where stderr is not visible. Auto-trims at 2000 lines. |
 | Two-exe publish: `fling.exe` + `flingw.exe` | A Windows PE exe has exactly one subsystem flag — console or GUI. Console apps flash a window when launched from a GUI caller; GUI apps lose stdout in cmd.exe. The publish script builds once (console), copies, and patches one PE byte to produce the GUI variant. Same pattern as `python.exe` / `pythonw.exe`. |
+| Plain text is preferred over CF_HTML when the clipboard offers both | An application offering both is describing the same content twice, and its CF_HTML carries the styling of whatever view it was copied from — one word out of a syntax-highlighted diff arrives as hundreds of characters of span markup. The phone writes what it receives to the clipboard with `ClipData.newPlainText`, so markup is pasted verbatim, tags and all. Preferring CF_UNICODETEXT produces what every other application shows. CF_HTML remains a fallback for the rare source that offers no plain-text alternative. Rich text would only become worth sending if the phone used `ClipData.newHtmlText`. |
 | Only the tray app may reference WinForms or WPF | `UseWindowsForms`/`UseWPF` add a framework reference to `Microsoft.WindowsDesktop.App`, which a self-contained publish ships whole — including all of WPF — regardless of what is called, and which makes the project untrimmable. The CLI carried both flags for two APIs (`Clipboard` and `Image`) at a measured cost of 58 MB and its ability to trim: 69 MB → 10.5 MB once removed. WinForms now exists solely for `NotifyIcon` in `Fling.Gui`. |
 | PNG input is sent verbatim rather than re-encoded | Decoding and re-encoding a PNG is wasted work on the dominant path (Greenshot produces PNG), and GDI+ does not preserve the source's compression settings, so the round trip often produces a larger payload. Validation is by content — signature plus a well-formed trailing `IEND` chunk — not by file extension, so a mislabelled or truncated file still fails on the PC instead of arriving broken on the phone. |
 | `System.Drawing.Common` kept as a package reference rather than replaced | It was never the cause of the size problem — the standalone GDI+ package does not pull the desktop runtime pack, and measured 10.2 MB trimmed with no trim warnings. Keeping it means image handling is unchanged and format support stays bit-identical. ImageSharp and WIC were rejected: neither preserves current behaviour, WIC's only managed wrapper lives in `PresentationCore`, and GDI+ receives image-decoder security fixes through Windows Update instead of requiring a Fling release. |

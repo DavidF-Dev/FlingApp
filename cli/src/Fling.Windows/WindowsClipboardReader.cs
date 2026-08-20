@@ -6,23 +6,62 @@ namespace Fling.Content;
 public sealed partial class WindowsClipboardReader : IClipboardReader
 {
     private const string HtmlFormatName = "HTML Format";
+    private const string ExcludeFromMonitoringFormatName = "ExcludeClipboardContentFromMonitorProcessing";
+    private const string ClipboardHistoryFormatName = "CanIncludeInClipboardHistory";
 
-    public ClipboardContent? Read() =>
-        Win32Clipboard.WithClipboard(() => ReadFrom(new Win32ClipboardSource()));
+    public ClipboardReadResult Read() =>
+        Win32Clipboard.WithClipboard(() => ReadFrom(new Win32ClipboardSource()))
+        ?? ClipboardReadResult.Empty;
 
     /// <summary>
-    /// Selects the richest available representation: image, then rich text, then plain
-    /// text. Text is required for the clipboard to be considered readable at all, which
-    /// matches how Windows populates formats for content Fling can send.
+    /// Selects the representation the receiving device can actually use: image, then
+    /// plain text, then markup only as a last resort.
     /// </summary>
-    internal static ClipboardContent? ReadFrom(IClipboardSource source)
+    /// <remarks>
+    /// Markup is deliberately ranked below plain text. An application that offers both is
+    /// describing the same content twice, and its CF_HTML carries whatever styling the
+    /// source view happened to use — copying one word out of a syntax-highlighted diff
+    /// yields hundreds of characters of span markup. The phone writes whatever arrives
+    /// straight to its clipboard as plain text, so that markup would be pasted verbatim,
+    /// tags and all. Preferring CF_UNICODETEXT gives the same result every other
+    /// application shows.
+    /// </remarks>
+    internal static ClipboardReadResult ReadFrom(IClipboardSource source)
+    {
+        var content = ReadContent(source);
+        return content is null
+            ? ClipboardReadResult.Empty
+            : new ClipboardReadResult(content, IsProtected(source));
+    }
+
+    /// <summary>
+    /// Reports whether the clipboard's owner opted out of history and monitoring, which
+    /// password managers do for the entries they copy.
+    /// </summary>
+    private static bool IsProtected(IClipboardSource source)
+    {
+        var exclude = source.RegisterFormat(ExcludeFromMonitoringFormatName);
+        if (exclude != 0 && source.IsFormatAvailable(exclude))
+            return true;
+
+        var history = source.RegisterFormat(ClipboardHistoryFormatName);
+        if (history == 0 || !source.IsFormatAvailable(history))
+            return false;
+
+        // The payload is a DWORD; zero is an explicit refusal, anything else consent.
+        var value = source.GetBytes(history);
+        return value is { Length: >= 4 } && BitConverter.ToUInt32(value, 0) == 0;
+    }
+
+    private static ClipboardContent? ReadContent(IClipboardSource source)
     {
         var htmlFormat = source.RegisterFormat(HtmlFormatName);
 
         var hasImage = source.IsFormatAvailable(Win32Clipboard.CF_DIB);
         var hasText = source.IsFormatAvailable(Win32Clipboard.CF_UNICODETEXT);
+        var hasHtml = htmlFormat != 0 && source.IsFormatAvailable(htmlFormat);
 
-        if (!hasImage && !hasText)
+        if (!hasImage && !hasText && !hasHtml)
             return null;
 
         if (hasImage)
@@ -38,23 +77,6 @@ public sealed partial class WindowsClipboardReader : IClipboardReader
             }
         }
 
-        if (htmlFormat != 0 && source.IsFormatAvailable(htmlFormat))
-        {
-            var bytes = source.GetBytes(htmlFormat);
-            if (bytes is not null)
-            {
-                var fragment = ExtractHtmlFragment(DecodeUtf8(bytes));
-                if (!string.IsNullOrWhiteSpace(fragment))
-                {
-                    return new ClipboardContent
-                    {
-                        ContentType = "text/html",
-                        Data = Encoding.UTF8.GetBytes(fragment),
-                    };
-                }
-            }
-        }
-
         if (hasText)
         {
             var bytes = source.GetBytes(Win32Clipboard.CF_UNICODETEXT);
@@ -67,6 +89,25 @@ public sealed partial class WindowsClipboardReader : IClipboardReader
                     {
                         ContentType = "text/plain",
                         Data = Encoding.UTF8.GetBytes(text),
+                    };
+                }
+            }
+        }
+
+        // Only reached when an application offered markup and no plain-text alternative,
+        // which is rare. Sending it beats sending nothing.
+        if (hasHtml)
+        {
+            var bytes = source.GetBytes(htmlFormat);
+            if (bytes is not null)
+            {
+                var fragment = ExtractHtmlFragment(DecodeUtf8(bytes));
+                if (!string.IsNullOrWhiteSpace(fragment))
+                {
+                    return new ClipboardContent
+                    {
+                        ContentType = "text/html",
+                        Data = Encoding.UTF8.GetBytes(fragment),
                     };
                 }
             }

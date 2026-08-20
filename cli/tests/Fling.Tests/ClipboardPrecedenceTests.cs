@@ -9,6 +9,8 @@ public sealed class ClipboardPrecedenceTests
     private const uint CF_DIB = 8;
     private const uint CF_UNICODETEXT = 13;
     private const uint HtmlFormat = 49_000;
+    private const uint ExcludeFromMonitoringFormat = 49_001;
+    private const uint ClipboardHistoryFormat = 49_002;
 
     [Fact]
     public void ReadFrom_ImageAndText_PrefersImage()
@@ -17,19 +19,53 @@ public sealed class ClipboardPrecedenceTests
             .With(CF_DIB, TestDib.Create(4, 4))
             .With(CF_UNICODETEXT, Utf16("some text"));
 
-        var content = WindowsClipboardReader.ReadFrom(source);
+        var content = WindowsClipboardReader.ReadFrom(source).Content;
 
         Assert.Equal("image/png", content!.ContentType);
     }
 
+    /// <summary>
+    /// An application offering both is describing the same content twice, and its markup
+    /// carries the styling of whatever view it was copied from. The receiving device
+    /// writes what arrives straight to its clipboard as plain text, so markup would be
+    /// pasted verbatim.
+    /// </summary>
     [Fact]
-    public void ReadFrom_HtmlAndPlainText_PrefersHtml()
+    public void ReadFrom_HtmlAndPlainText_PrefersPlainText()
     {
         var source = new FakeClipboardSource()
             .With(HtmlFormat, Utf8(CfHtml("<b>rich</b>")))
             .With(CF_UNICODETEXT, Utf16("rich"));
 
-        var content = WindowsClipboardReader.ReadFrom(source);
+        var content = WindowsClipboardReader.ReadFrom(source).Content;
+
+        Assert.Equal("text/plain", content!.ContentType);
+        Assert.Equal("rich", Encoding.UTF8.GetString(content.Data));
+    }
+
+    /// <summary>
+    /// Reproduces copying a word out of a syntax-highlighted diff, where the markup is
+    /// hundreds of characters describing one word.
+    /// </summary>
+    [Fact]
+    public void ReadFrom_HeavilyStyledHtml_SendsOnlyTheWord()
+    {
+        var styled = $"<span style=\"{new string('x', 600)}\">summary</span>";
+        var source = new FakeClipboardSource()
+            .With(HtmlFormat, Utf8(CfHtml(styled)))
+            .With(CF_UNICODETEXT, Utf16("summary"));
+
+        var content = WindowsClipboardReader.ReadFrom(source).Content;
+
+        Assert.Equal("summary", Encoding.UTF8.GetString(content!.Data));
+    }
+
+    [Fact]
+    public void ReadFrom_HtmlWithNoPlainTextAlternative_FallsBackToHtml()
+    {
+        var source = new FakeClipboardSource().With(HtmlFormat, Utf8(CfHtml("<b>rich</b>")));
+
+        var content = WindowsClipboardReader.ReadFrom(source).Content;
 
         Assert.Equal("text/html", content!.ContentType);
         Assert.Equal("<b>rich</b>", Encoding.UTF8.GetString(content.Data));
@@ -43,7 +79,7 @@ public sealed class ClipboardPrecedenceTests
             .With(HtmlFormat, Utf8(CfHtml("<b>rich</b>")))
             .With(CF_UNICODETEXT, Utf16("rich"));
 
-        var content = WindowsClipboardReader.ReadFrom(source);
+        var content = WindowsClipboardReader.ReadFrom(source).Content;
 
         Assert.Equal("image/png", content!.ContentType);
     }
@@ -53,7 +89,7 @@ public sealed class ClipboardPrecedenceTests
     {
         var source = new FakeClipboardSource().With(CF_UNICODETEXT, Utf16("hello"));
 
-        var content = WindowsClipboardReader.ReadFrom(source);
+        var content = WindowsClipboardReader.ReadFrom(source).Content;
 
         Assert.Equal("text/plain", content!.ContentType);
         Assert.Equal("hello", Encoding.UTF8.GetString(content.Data));
@@ -62,7 +98,7 @@ public sealed class ClipboardPrecedenceTests
     [Fact]
     public void ReadFrom_NothingAvailable_ReturnsNull()
     {
-        Assert.Null(WindowsClipboardReader.ReadFrom(new FakeClipboardSource()));
+        Assert.Null(WindowsClipboardReader.ReadFrom(new FakeClipboardSource()).Content);
     }
 
     [Fact]
@@ -70,9 +106,64 @@ public sealed class ClipboardPrecedenceTests
     {
         var source = new FakeClipboardSource().With(CF_UNICODETEXT, Utf16("hello"));
 
-        var content = WindowsClipboardReader.ReadFrom(source);
+        var content = WindowsClipboardReader.ReadFrom(source).Content;
 
         Assert.Equal("hello", Encoding.UTF8.GetString(content!.Data));
+    }
+
+    [Fact]
+    public void ReadFrom_OrdinaryContent_IsNotProtected()
+    {
+        var source = new FakeClipboardSource().With(CF_UNICODETEXT, Utf16("hello"));
+
+        Assert.False(WindowsClipboardReader.ReadFrom(source).IsProtected);
+    }
+
+    [Fact]
+    public void ReadFrom_ExcludedFromMonitoring_IsProtectedButStillReadable()
+    {
+        var source = new FakeClipboardSource()
+            .With(CF_UNICODETEXT, Utf16("hunter2"))
+            .With(ExcludeFromMonitoringFormat, []);
+
+        var result = WindowsClipboardReader.ReadFrom(source);
+
+        Assert.True(result.IsProtected);
+        Assert.Equal("hunter2", Encoding.UTF8.GetString(result.Content!.Data));
+    }
+
+    [Fact]
+    public void ReadFrom_ClipboardHistoryDeclined_IsProtected()
+    {
+        var source = new FakeClipboardSource()
+            .With(CF_UNICODETEXT, Utf16("hunter2"))
+            .With(ClipboardHistoryFormat, BitConverter.GetBytes(0u));
+
+        Assert.True(WindowsClipboardReader.ReadFrom(source).IsProtected);
+    }
+
+    [Fact]
+    public void ReadFrom_ClipboardHistoryAllowed_IsNotProtected()
+    {
+        var source = new FakeClipboardSource()
+            .With(CF_UNICODETEXT, Utf16("hello"))
+            .With(ClipboardHistoryFormat, BitConverter.GetBytes(1u));
+
+        Assert.False(WindowsClipboardReader.ReadFrom(source).IsProtected);
+    }
+
+    [Fact]
+    public void ReadFrom_ProtectedImage_IsStillDecoded()
+    {
+        var source = new FakeClipboardSource()
+            .With(CF_DIB, TestDib.Create(4, 4))
+            .With(CF_UNICODETEXT, Utf16("x"))
+            .With(ExcludeFromMonitoringFormat, []);
+
+        var result = WindowsClipboardReader.ReadFrom(source);
+
+        Assert.True(result.IsProtected);
+        Assert.Equal("image/png", result.Content!.ContentType);
     }
 
     private static byte[] Utf16(string value) => Encoding.Unicode.GetBytes(value + '\0');
@@ -118,7 +209,13 @@ public sealed class ClipboardPrecedenceTests
 
         public byte[]? GetBytes(uint format) => _formats.GetValueOrDefault(format);
 
-        public uint RegisterFormat(string name) => HtmlFormat;
+        public uint RegisterFormat(string name) => name switch
+        {
+            "HTML Format" => HtmlFormat,
+            "ExcludeClipboardContentFromMonitorProcessing" => ExcludeFromMonitoringFormat,
+            "CanIncludeInClipboardHistory" => ClipboardHistoryFormat,
+            _ => 0,
+        };
     }
 }
 

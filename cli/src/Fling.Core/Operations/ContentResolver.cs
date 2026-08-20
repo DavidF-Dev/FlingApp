@@ -10,12 +10,17 @@ public sealed record ResolvedContent(string ContentType, byte[] Data);
 /// </summary>
 public sealed class ContentResolver(IClipboardReader clipboard, IImageEncoder images)
 {
+    /// <summary>
+    /// Reads the clipboard. Content its owner marked as protected is still returned:
+    /// this path is only reached when the user explicitly asked to send it.
+    /// </summary>
     public ResolvedContent FromClipboard()
     {
-        var content = clipboard.Read()
-            ?? throw new ContentResolutionException("Clipboard is empty or contains unsupported content.");
+        var result = clipboard.Read();
+        if (result.Content is null)
+            throw new ContentResolutionException("Clipboard is empty or contains unsupported content.");
 
-        return new ResolvedContent(content.ContentType, content.Data);
+        return new ResolvedContent(result.Content.ContentType, result.Content.Data);
     }
 
     public ResolvedContent FromImage(string path)

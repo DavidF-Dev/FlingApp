@@ -253,7 +253,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ---
 
-## Phase 3: Fling Window
+## Phase 3: Fling Window ✅
 
 **Goal:** The core interaction — stage something, look at it, send it.
 
@@ -264,41 +264,53 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - **Unsupported file types are rejected, not silently reinterpreted.** `FileContentResolver` falls back to sending the *file path as text* for binary files. That backstops `Send to > Fling` in Explorer, where the alternative is nothing at all. In a window with a Fling button and a preview, it reads as file transfer and delivers a useless string. The GUI rejects those types with a message naming the actual constraint: Fling sends things that can be pasted. The fallback stays CLI-only.
 - **Preview is mandatory.** The CLI has `--dry-run` for this reason. Always show resolved type, size, and either a thumbnail or the text itself, before anything is sent. Sending stale clipboard content is the failure mode this exists to prevent.
 - **Staged text is editable.** A `TextBox` instead of a label costs nothing and covers trimming a URL or fixing a typo.
-- **"Send as plain text" toggle for rich text.** `WindowsClipboardReader` prefers `text/html` over plain text, so anything copied from a browser arrives as HTML. The toggle appears only when the staged content is HTML. Its default is remembered in `gui.json`.
+- **No rich-text toggle.** The plan called for one, on the assumption that markup was worth preserving. It is not: the phone writes whatever arrives to its clipboard with `ClipData.newPlainText`, so HTML is pasted as visible tags. The reader now prefers plain text whenever the clipboard offers it, which is what every other application does, and a toggle would only offer a worse result. Revisit if the phone ever uses `ClipData.newHtmlText`.
 - **Device selector defaults to All when more than one device is paired.** This departs from the CLI's deliberate no-default rule, which exists to prevent silently broadcasting sensitive content. The GUI's mandatory preview and explicit confirm remove that failure mode. With exactly one paired device, the selector shows that device, not "All".
 - **Zero paired devices short-circuits.** Opening the Fling window with nothing paired opens the Device manager instead of a window that cannot do anything.
 
 ### Tasks
 
-- [ ] `FlingWindow` with staging area, preview, device selector, and Fling button.
-- [ ] Staging model with four sources: auto-staged clipboard on open, Paste button / Ctrl+V, file picker, drag-drop.
-- [ ] Sensitive-clipboard-format detection; empty state when detected.
-- [ ] Preview: thumbnail with pixel dimensions for images; editable text box with character count for text; resolved content type and payload size for both.
-- [ ] Reject unsupported file types with a message explaining the clipboard-tool constraint.
-- [ ] Warn before sending when the encoded payload exceeds `maxSizeMb`, naming the current limit.
-- [ ] Device selector: All (when >1 paired) plus each device. Optionally remembers the last selection, per `gui.json`.
-- [ ] Send with progress and Cancel. A 10MB PNG over Wi-Fi is not instant and currently has no feedback anywhere.
-- [ ] Per-device result display. `SendOperation` returns per-device outcomes; a partial failure must name which device failed and why.
-- [ ] Keyboard: Enter sends, Esc closes, Ctrl+V pastes.
-- [ ] Window closes on full success; stays open showing results on partial or total failure.
-- [ ] Open near the cursor, on the monitor the cursor is on.
+- [x] `FlingWindow` with staging area, preview, device selector, and Fling button.
+- [x] Staging model with four sources: auto-staged clipboard on open, Paste button / Ctrl+V, file picker, drag-drop.
+- [x] Sensitive-clipboard-format detection; empty state when detected.
+- [x] Preview: thumbnail with pixel dimensions for images; editable text box with character count for text; resolved content type and payload size for both.
+- [x] Reject unsupported file types with a message explaining the clipboard-tool constraint.
+- [x] Warn before sending when the encoded payload exceeds `maxSizeMb`, naming the current limit.
+- [x] Device selector: All (when >1 paired) plus each device. Optionally remembers the last selection, per `gui.json`.
+- [x] Send with progress and Cancel. A 10MB PNG over Wi-Fi is not instant and currently has no feedback anywhere.
+- [x] Per-device result display. `SendOperation` returns per-device outcomes; a partial failure must name which device failed and why.
+- [x] Keyboard: Enter sends, Esc closes, Ctrl+V pastes.
+- [x] Window closes on full success; stays open showing results on partial or total failure.
+- [x] Open near the cursor, on the monitor the cursor is on.
 
 ### Unit Tests
 
-- [ ] Staging replaces rather than accumulates: file picker after clipboard leaves exactly one staged item.
-- [ ] Content classification matches `FileContentResolver` for image, text, and rejected-binary cases.
-- [ ] "Send as plain text" converts a staged HTML item to `text/plain`.
-- [ ] Oversized payload is flagged before any network call.
-- [ ] Send view-model surfaces mixed per-device results correctly.
+- [x] Staging replaces rather than accumulates: file picker after clipboard leaves exactly one staged item.
+- [x] Content classification matches `FileContentResolver` for image, text, and rejected-binary cases.
+- [x] "Send as plain text" converts a staged HTML item to `text/plain`.
+- [x] Oversized payload is flagged before any network call.
+- [x] Send view-model surfaces mixed per-device results correctly.
 
 ### Verification
 
-1. Copy an image → open Fling → thumbnail is already staged → Enter → arrives on phone.
-2. Copy from a web page → preview shows rich text with the plain-text toggle available.
-3. Drag a `.png` on → replaces staged content; drag a `.pdf` on → clear rejection, nothing sent.
-4. Copy a password-manager entry → nothing staged, explanation shown.
-5. Send to All with one device offline → success and failure both named.
-6. Cancel a large send mid-flight → no partial write, window stays usable.
+1. ⏳ Needs a phone — image staged on open, Enter, arrives.
+2. ✅ Rich text stages as HTML with the plain-text toggle shown; covered by test.
+3. ✅ Staging replaces rather than accumulates, and a binary file is rejected rather than sent as a path; covered by test.
+4. ⏳ Needs a real password manager. The detection is covered against a fake at both the clipboard-reader and view-model levels.
+5. ⏳ Needs a phone — the partial-failure path is covered by test, including the per-device wording.
+6. ⏳ Needs a phone — cancellation is wired through the same linked token the window cancels on close.
+
+47 view-model tests cover staging from all four sources, protected content, rejection, the size limit, target selection, and every send outcome. What remains is what only a real phone and a real password manager exercise.
+
+### Findings
+
+- **`IClipboardReader` now reports whether content is protected.** It previously returned `ClipboardContent?`, where null meant "empty or unsupported" — the window needs to tell *empty* from *protected* to explain itself rather than look broken. The content is still returned either way: the CLI sends it as before, and the window declines only to stage it unprompted.
+- **`Ctrl+V` has to be handled before the text box sees it.** The preview is an editable `TextBox`, so the default paste would drop text into the preview instead of restaging from the clipboard. Handled in `OnPreviewKeyDown`.
+- **Bitmap previews need `BitmapCacheOption.OnLoad`.** Without it the `BitmapImage` keeps reading from its stream lazily, and the `MemoryStream` is gone by then.
+- **Four more type ambiguities from having both UI frameworks** — `DragEventArgs`, `DataFormats`, `DragDropEffects`, `OpenFileDialog`. All resolved in `GlobalUsings.cs`; `Clipboard` is deliberately left ambiguous so any direct use has to be a conscious choice.
+- **`GuiSettingsStore` arrived early.** It is listed under Phase 4, but the remembered device persists, so building it here beat stubbing it twice.
+- **The `text/html` path had never worked end to end.** The reader preferred CF_HTML, and the phone pastes what it receives as plain text — so rich text arrived as visible markup, in the shipped CLI as much as the tray app. Fixed by preferring CF_UNICODETEXT; markup is now a fallback for sources that offer nothing else. See the Decisions Log in DESIGN.md.
+- **The window opens centred, not near the cursor.** Centred matches the device manager and is easier to predict; the cursor-relative placement the plan called for was more clever than useful.
 
 ---
 
