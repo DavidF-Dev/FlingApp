@@ -27,7 +27,6 @@ A tray application for sending clipboard content to paired Android devices, alon
 
 - Send outcomes are reported through the notification area once the window has closed. Failures name the device and say whether it rejected the key or could not be reached; successes mark the tray icon briefly rather than interrupting.
 - Configurable: always, only on failure (the default), or never.
-- The tray tooltip shows how many devices are paired.
 
 ### Settings
 

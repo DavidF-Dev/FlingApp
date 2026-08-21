@@ -58,10 +58,6 @@ public partial class App : Application
 
         _notifier = new SendNotifier(_tray, _settings);
 
-        // A window may have paired or removed a device, which the tooltip reports.
-        _windows.WindowClosed += RefreshTooltip;
-        RefreshTooltip();
-
         _instance.ListenForActivation(() => Dispatcher.Invoke(OpenFling));
 
         // Launching the app means "I want to send something"; only the sign-in entry
@@ -105,26 +101,6 @@ public partial class App : Application
             _settings,
             new StartupRegistration(StartMinimizedArgument),
             new ExplorerSendToIntegration(SendToIntegration.ResolveExePath()))));
-
-    private void RefreshTooltip()
-    {
-        var count = 0;
-        try
-        {
-            count = _config.Load().Devices.Count;
-        }
-        catch (Exception)
-        {
-            // A damaged config is reported where the user can act on it, not in a tooltip.
-        }
-
-        _tray?.SetTooltip(count switch
-        {
-            0 => "Fling — no devices paired",
-            1 => "Fling — 1 device paired",
-            _ => $"Fling — {count} devices paired",
-        });
-    }
 
     /// <summary>
     /// Repoints a sign-in entry left behind by a copy that has since been moved. Does

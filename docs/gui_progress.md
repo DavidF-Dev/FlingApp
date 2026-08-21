@@ -382,7 +382,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - [x] Notification service over `ShowBalloonTip`, honouring the configured mode.
 - [x] Failure notifications name the device and the reason, distinguishing auth failure from unreachable — the CLI already separates these as exit codes 3 and 2.
 - [x] Brief tray icon state change on success.
-- [x] Tray tooltip shows paired device count.
+- [x] Tray tooltip stays a plain "Fling" — a device count there is noise, not information.
 - [x] `--minimized` startup flag suppresses any window on launch.
 - [x] Verify tray icon behaviour across DPI changes and Explorer restart (a `NotifyIcon` is lost when Explorer restarts unless re-registered).
 
@@ -401,7 +401,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - **Balloon text has to fit by construction.** Windows truncates past 255 characters silently, and it is the tail — the device name, or what went wrong — that gets lost. Two tests written against many failing devices and against long names and errors both failed on the first run, which is what they were for. Failures now list at most three names and count the rest, and long names and error text are shortened.
 - **`WindowManager` takes a factory rather than calling `new`.** Windows needed dependencies the manager had no business knowing about, and the parameterless constructors each built their own stores — a second composition root that would quietly drift from the real one. They are gone; `App` composes everything.
 - **The success flash needs its own icon.** There is only one icon in the executable, so a marker is composited onto it at startup. `Icon.FromHandle` owns an unmanaged handle that `Dispose` does not release, so the handle is kept and destroyed explicitly.
-- **The tooltip refreshes when a window closes.** The paired device count changes in the Device manager, and there is no change notification to subscribe to; a window closing is a good enough moment to re-read it.
+- **The tray tooltip is just "Fling".** A paired device count was built and then removed: the hover text is glanced at, not read, and the count is already on screen in the Device manager.
 
 ---
 

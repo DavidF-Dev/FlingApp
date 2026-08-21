@@ -49,15 +49,6 @@ public sealed partial class TrayIconHost : IDisposable
         _flashTimer.Tick += (_, _) => RestoreIcon();
     }
 
-    /// <summary>
-    /// Sets the hover text, which is where the paired device count is surfaced.
-    /// </summary>
-    public void SetTooltip(string text)
-    {
-        // NotifyIcon truncates silently past 63 characters.
-        _icon.Text = text.Length <= 63 ? text : text[..63];
-    }
-
     public void ShowBalloon(string title, string message, ToolTipIcon icon)
     {
         _icon.BalloonTipTitle = title.Length <= 63 ? title : title[..63];

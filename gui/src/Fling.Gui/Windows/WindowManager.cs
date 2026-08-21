@@ -11,12 +11,6 @@ public sealed class WindowManager
     private readonly Dictionary<Type, Window> _open = [];
 
     /// <summary>
-    /// Raised whenever a window closes, so the caller can refresh anything the window
-    /// might have changed.
-    /// </summary>
-    public event Action? WindowClosed;
-
-    /// <summary>
     /// Shows the window of this type, creating it with <paramref name="create"/> only if
     /// one is not already open. The factory keeps window construction — and the
     /// dependencies each window needs — with the caller rather than here.
@@ -31,11 +25,7 @@ public sealed class WindowManager
 
         var window = create();
         _open[typeof(TWindow)] = window;
-        window.Closed += (_, _) =>
-        {
-            _open.Remove(typeof(TWindow));
-            WindowClosed?.Invoke();
-        };
+        window.Closed += (_, _) => _open.Remove(typeof(TWindow));
 
         window.Show();
         Surface(window);
