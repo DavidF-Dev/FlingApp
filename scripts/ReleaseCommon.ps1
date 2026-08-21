@@ -42,6 +42,13 @@ function Assert-ReleasePreconditions {
 
     if (git status --porcelain) { Fail 'working tree is dirty — commit or stash changes first' }
 
+    # gh release create makes the tag on the remote only, so a release published from
+    # here — or from another machine — leaves no local tag behind. Without this, the
+    # duplicate-tag check and the compatibility cross-reference both work from a stale
+    # view: releasing two components back to back would name the older of the pair.
+    git fetch --tags --quiet 2>$null
+    if ($LASTEXITCODE -ne 0) { Fail 'could not fetch tags from the remote' }
+
     git rev-parse --symbolic-full-name '@{u}' 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'current branch has no upstream — push it first (git push -u origin HEAD)' }
     if ([int](git rev-list --count '@{u}..HEAD') -ne 0) { Fail 'HEAD is ahead of the remote — push first (git push)' }

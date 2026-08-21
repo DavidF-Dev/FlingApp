@@ -407,6 +407,8 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ## Phase 6: Packaging & Distribution ✅
 
+**Shipped as `gui/v1.0.0`, alongside `cli/v1.0.2`.**
+
 **Goal:** A shippable tray app alongside the existing CLI.
 
 ### Design decisions
@@ -445,6 +447,7 @@ non-git functions were exercised directly.
 - **ReadyToRun is wrong for the tray app, for the same reason it is right for the CLI.** Untrimmed, the framework assemblies keep the precompiled code Microsoft ships them with; adding ReadyToRun recompiles them into a larger payload with nothing to gain. Measured 68.6 MB → 72.7 MB, cold start 1.9 s → 4.7 s, warm 0.70 s → 0.76 s. Worse on every axis, so it is off here and on there.
 - **The tray app is 68.6 MB against the CLI's 15.9 MB**, and there is no closing that gap: WPF cannot be trimmed. This is the reason the two ship as separate downloads rather than one.
 - **The release ceremony was extracted rather than copied a third time.** `scripts/ReleaseCommon.ps1` holds the guard rails, CHANGELOG extraction, compatibility cross-reference, confirmation, and publish; the CLI and tray scripts supply their version, tag, and artifact. The Android script was deliberately left alone — it is a different toolchain, and it is the one release path that cannot be rehearsed without publishing.
+- **The compatibility cross-reference read stale tags, and it showed.** `gh release create` puts the tag on the remote only, so releasing the CLI and then the tray app minutes later left the tray app's notes naming `cli/v1.0.1` — the very mismatch that releasing in that order was meant to avoid. The guard rails now fetch tags first, which also closes a gap in the duplicate-tag check: a tag pushed from elsewhere was previously invisible.
 - **`publish.ps1` refuses to run while the tray app is running.** A running instance holds a lock on the executable, and the build failure it produces reads like a code error. It bit me repeatedly during development.
 
 ---
