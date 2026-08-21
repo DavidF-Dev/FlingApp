@@ -226,26 +226,71 @@ public sealed class StartupRegistrationTests : IDisposable
         Assert.True(registration.IsEnabled());
     }
 
-    // --- Healing a moved executable --------------------------------------------------
+    // --- Repairing a stale entry -----------------------------------------------------
+
+    /// <summary>
+    /// An entry written before the app needed a switch launches without it, which is how
+    /// a sign-in launch ended up opening a window instead of going to the tray. The path
+    /// is still valid, so nothing about it looks wrong.
+    /// </summary>
+    [Fact]
+    public void RepairIfStale_ArgumentsChangedSinceTheEntryWasWritten_RewritesIt()
+    {
+        Registration(arguments: "").Enable();
+        Assert.DoesNotContain("--minimized", RegisteredValue());
+
+        var current = Registration(arguments: "--minimized");
+
+        Assert.True(current.RepairIfStale());
+        Assert.Equal($"\"{_exePath}\" --minimized", RegisteredValue());
+        Assert.True(current.IsEnabled());
+    }
 
     [Fact]
-    public void HealIfMoved_NoEntry_DoesNothing()
+    public void RepairIfStale_ArgumentsRemovedInThisBuild_RewritesIt()
+    {
+        Registration(arguments: "--minimized").Enable();
+
+        Assert.True(Registration(arguments: "").RepairIfStale());
+        Assert.Equal($"\"{_exePath}\"", RegisteredValue());
+    }
+
+    /// <summary>
+    /// Repairing arguments must not resurrect an entry the user switched off elsewhere.
+    /// </summary>
+    [Fact]
+    public void RepairIfStale_StaleArgumentsButDisabledInTaskManager_StaysDisabled()
+    {
+        Registration(arguments: "").Enable();
+        WriteApprovalState(disabled: true);
+
+        var current = Registration(arguments: "--minimized");
+
+        Assert.True(current.RepairIfStale());
+        Assert.Contains("--minimized", RegisteredValue());
+        Assert.False(current.IsEnabled());
+    }
+
+    // --- Repairing a moved executable ------------------------------------------------
+
+    [Fact]
+    public void RepairIfStale_NoEntry_DoesNothing()
     {
         var registration = Registration();
 
-        Assert.False(registration.HealIfMoved());
+        Assert.False(registration.RepairIfStale());
         Assert.Null(registration.RegisteredCommand());
         Assert.False(registration.IsEnabled());
     }
 
     [Fact]
-    public void HealIfMoved_EntryAlreadyCorrect_DoesNothing()
+    public void RepairIfStale_EntryAlreadyCorrect_DoesNothing()
     {
         var registration = Registration();
         registration.Enable();
         var before = RegisteredValue();
 
-        Assert.False(registration.HealIfMoved());
+        Assert.False(registration.RepairIfStale());
         Assert.Equal(before, RegisteredValue());
     }
 
@@ -254,25 +299,25 @@ public sealed class StartupRegistrationTests : IDisposable
     /// longer there and would launch nothing at sign-in.
     /// </summary>
     [Fact]
-    public void HealIfMoved_OldPathGone_RepointsAtTheRunningCopy()
+    public void RepairIfStale_OldPathGone_RepointsAtTheRunningCopy()
     {
         var oldPath = Path.Combine(Path.GetTempPath(), $"fling-gone-{Guid.NewGuid():N}", "FlingTray.exe");
         Registration(oldPath).Enable();
 
         var current = Registration();
 
-        Assert.True(current.HealIfMoved());
+        Assert.True(current.RepairIfStale());
         Assert.True(current.IsEnabled());
         Assert.Contains(_exePath, RegisteredValue());
     }
 
     [Fact]
-    public void HealIfMoved_PreservesArguments()
+    public void RepairIfStale_PreservesArguments()
     {
         var oldPath = Path.Combine(Path.GetTempPath(), $"fling-gone-{Guid.NewGuid():N}", "FlingTray.exe");
         Registration(oldPath).Enable();
 
-        Registration().HealIfMoved();
+        Registration().RepairIfStale();
 
         Assert.Contains("--minimized", RegisteredValue());
     }
@@ -282,7 +327,7 @@ public sealed class StartupRegistrationTests : IDisposable
     /// entry from it.
     /// </summary>
     [Fact]
-    public void HealIfMoved_OtherCopyStillExists_LeavesTheEntryAlone()
+    public void RepairIfStale_OtherCopyStillExists_LeavesTheEntryAlone()
     {
         var otherCopy = CreateExecutable("FlingTray.exe");
         try
@@ -292,7 +337,7 @@ public sealed class StartupRegistrationTests : IDisposable
 
             var current = Registration();
 
-            Assert.False(current.HealIfMoved());
+            Assert.False(current.RepairIfStale());
             Assert.Equal(before, RegisteredValue());
             Assert.False(current.IsEnabled());
         }
@@ -307,7 +352,7 @@ public sealed class StartupRegistrationTests : IDisposable
     /// in Task Manager should find it still off.
     /// </summary>
     [Fact]
-    public void HealIfMoved_DoesNotOverrideATaskManagerRefusal()
+    public void RepairIfStale_DoesNotOverrideATaskManagerRefusal()
     {
         var oldPath = Path.Combine(Path.GetTempPath(), $"fling-gone-{Guid.NewGuid():N}", "FlingTray.exe");
         Registration(oldPath).Enable();
@@ -315,17 +360,17 @@ public sealed class StartupRegistrationTests : IDisposable
 
         var current = Registration();
 
-        Assert.True(current.HealIfMoved());
+        Assert.True(current.RepairIfStale());
         Assert.False(current.IsEnabled());
     }
 
     [Fact]
-    public void HealIfMoved_NeverOptsTheUserIn()
+    public void RepairIfStale_NeverOptsTheUserIn()
     {
         var registration = Registration();
 
-        registration.HealIfMoved();
-        registration.HealIfMoved();
+        registration.RepairIfStale();
+        registration.RepairIfStale();
 
         Assert.Null(registration.RegisteredCommand());
     }

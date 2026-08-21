@@ -103,14 +103,14 @@ public partial class App : Application
             new ExplorerSendToIntegration(SendToIntegration.ResolveExePath()))));
 
     /// <summary>
-    /// Repoints a sign-in entry left behind by a copy that has since been moved. Does
-    /// nothing when the user never asked to start at sign-in.
+    /// Brings a sign-in entry back in line with what this build writes — after the app is
+    /// moved, or after the arguments change. Does nothing when the user never asked for it.
     /// </summary>
     private static void RepairStartupEntry()
     {
         try
         {
-            new StartupRegistration(StartMinimizedArgument).HealIfMoved();
+            new StartupRegistration(StartMinimizedArgument).RepairIfStale();
         }
         catch (Exception)
         {

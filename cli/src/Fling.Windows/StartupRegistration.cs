@@ -10,7 +10,7 @@ public interface IStartupRegistration
     bool IsEnabled();
     void Enable();
     void Disable();
-    bool HealIfMoved();
+    bool RepairIfStale();
 }
 
 /// <summary>
@@ -93,25 +93,36 @@ public sealed class StartupRegistration : IStartupRegistration
     }
 
     /// <summary>
-    /// Repoints an existing entry at the running executable when the one it names has
-    /// gone, and reports whether it did.
+    /// Brings an existing entry back in line with what this build would write, and
+    /// reports whether it changed anything.
     /// </summary>
     /// <remarks>
-    /// Moving or reinstalling the app leaves an entry that launches nothing, and the
-    /// user's intent — start at sign-in — was never about a particular file. Healing is
-    /// deliberately narrow: an entry is never created here, so the on/off choice stays
-    /// the user's, and an entry naming a copy that still exists is left alone rather
-    /// than stolen from it. A refusal recorded by Task Manager is preserved, since
-    /// fixing a path is not consent to start again.
+    /// An entry goes stale two ways: the executable it names is moved or reinstalled
+    /// elsewhere, or the arguments change between versions. Both leave an entry that no
+    /// longer does what the user asked for, and the intent — start at sign-in — was
+    /// never about a particular path or switch.
+    ///
+    /// Deliberately narrow in what it will not do: an entry is never created here, so
+    /// the on/off choice stays the user's; an entry naming a different copy that still
+    /// exists is left alone rather than stolen from it; and a refusal recorded by Task
+    /// Manager is preserved, since correcting an entry is not consent to start again.
     /// </remarks>
-    public bool HealIfMoved()
+    public bool RepairIfStale()
     {
         var command = RegisteredCommand();
         if (command is null)
             return false;
 
-        if (PointsAtThisExecutable(command))
+        if (command == BuildCommand())
             return false;
+
+        // Same executable, different command line — the arguments this build needs have
+        // changed since the entry was written.
+        if (PointsAtThisExecutable(command))
+        {
+            WriteCommand();
+            return true;
+        }
 
         var registered = ParseExecutablePath(command);
         if (registered is not null && File.Exists(registered))

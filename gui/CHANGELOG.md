@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The sign-in entry now repairs itself when the arguments it was written with go out of date, not only when the executable is moved. An entry written by an older build launched Fling without `--minimized`, so it opened a window at sign-in instead of going to the tray — and the path was still valid, so nothing looked wrong.
+
 ## [1.0.0] - 2026-08-21
 
 First public release.
@@ -36,6 +40,6 @@ A tray application for sending clipboard content to paired Android devices, alon
 ### Behaviour
 
 - One instance per user session.
-- Starting at sign-in launches into the tray without a window, and repoints itself if the app is later moved.
+- Starting at sign-in launches into the tray without a window, and repairs its own entry if the app is later moved.
 - Windows open on the display you are working on rather than always the primary one.
 - With no devices paired, launching opens the Device manager, so a first run lands on pairing.

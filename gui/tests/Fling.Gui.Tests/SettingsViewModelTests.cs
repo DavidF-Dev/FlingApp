@@ -307,7 +307,7 @@ public sealed class SettingsViewModelTests : IDisposable
         public bool IsEnabled() => Enabled;
         public void Enable() => Enabled = true;
         public void Disable() => Enabled = false;
-        public bool HealIfMoved() => false;
+        public bool RepairIfStale() => false;
     }
 
     private sealed class FakeShell : IShellIntegration
