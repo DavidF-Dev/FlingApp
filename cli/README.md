@@ -81,7 +81,7 @@ silently saved to config as a fallback for when discovery is unavailable.
 
 Configure Greenshot's External Command Plugin:
 
-- **Command:** `C:\path\to\flingw.exe`
+- **Command:** `C:/path/to/flingw.exe`
 - **Arguments:** `send --image "{0}" --all`
 
 Use `flingw.exe` (not `fling.exe`) to avoid a console window flash on each capture.
