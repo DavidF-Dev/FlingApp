@@ -171,6 +171,33 @@ This is a **live document** tracking the phased implementation of the Fling rele
 
 ---
 
+## Phase 5: Tray App Release Script ✅
+
+**Goal:** `gui/scripts/release.ps1` creates a GitHub Release with the tray app zip attached.
+
+**Context:** A third component made the ceremony worth extracting rather than copying again.
+
+### Tasks
+
+- [x] Add `gui/scripts/publish.ps1`, producing `fling-tray-<version>-win-x64.zip`. Refuses to run while the tray app is running, since a live instance locks the executable and the resulting build error reads like a code problem.
+- [x] Extract the shared release logic into `scripts/ReleaseCommon.ps1`: guard rails, changelog extraction, cross-references, confirmation, publish.
+- [x] Add `gui/scripts/release.ps1` and move `cli/scripts/release.ps1` onto the shared helper.
+- [x] Cross-reference both `android/v*` and `cli/v*` from the tray app, since it talks to the phone and shares configuration with the CLI.
+
+### Design decisions
+
+- **The Android script stays standalone.** It is a different toolchain with its own signing guard, and it is the one release path that cannot be rehearsed without publishing. Consistency there would have been bought with risk to the thing least able to absorb it.
+- **Tags are fetched before any tag is inspected.** `gh release create` makes the tag on the remote only, so a script running minutes after another release worked from a stale local view. This was not theoretical: `gui/v1.0.0` shipped naming `cli/v1.0.1` when `cli/v1.0.2` had just been published, and the note had to be corrected by hand. The same fetch closes a gap in the duplicate-tag guard, which could not previously see a tag pushed from elsewhere.
+
+### Verification
+
+1. ✅ Refuses to run on a dirty working tree.
+2. ✅ Refuses a version with no matching CHANGELOG section.
+3. ✅ Cross-reference resolves both components once tags are fetched.
+4. ✅ Shipped `gui/v1.0.0` and `cli/v1.0.2`.
+
+---
+
 ## Appendix: Release Workflow Checklist
 
 For each component release, the developer should:
@@ -181,3 +208,8 @@ For each component release, the developer should:
 4. Commit the version bump and changelog.
 5. Run the release script: `powershell -File <component>/scripts/release.ps1`.
 6. Verify the GitHub Release page looks correct.
+
+When releasing more than one component in a sitting, release the one others will point at
+first — the cross-reference names whatever is newest at the time, so a component released
+first will name the *previous* version of the one released after it. Check the
+"Compatible with" line on each release before moving on.

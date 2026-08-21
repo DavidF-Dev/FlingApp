@@ -27,6 +27,6 @@ The tray app is not trimmed and is not ReadyToRun-constrained the way the CLI is
 - Reach the clipboard through Core's `IClipboardReader`, never `System.Windows.Forms.Clipboard`.
 - Windows open through `WindowManager`, which keeps one live instance per type.
 
-## Phases
+## History
 
-See `docs/gui_progress.md`. Phase 1 (tray shell) is complete; windows are placeholders until Phases 2–4.
+Built in six phases, all shipped as `gui/v1.0.0`. `docs/gui_progress.md` records each one with the decisions that changed along the way and what remains deferred — global hotkey, clipboard watching, send history, two-way receive.

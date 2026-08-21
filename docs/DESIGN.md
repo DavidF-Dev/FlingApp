@@ -195,20 +195,27 @@ Auto-discovery runs over UDP, separate from the HTTP protocol.
 ## CLI Commands
 
 ```
-fling pair <ip:port>                # Pair with a new device
-fling pair <ip:port> --name "PC"    # Pair with a custom PC name
-fling pair <ip:port> --force        # Re-pair (new key) even if device exists
+fling pair <ip:port>                 # Pair with a new device
+fling pair --discover                # Find a device on the network and pair with it
+fling pair <ip:port> --name "PC"     # Pair with a custom PC name
+fling pair <ip:port> --force         # Re-pair (new key) even if device exists
 fling send --clipboard --device <n>  # Send current clipboard to a device
-fling send --clipboard --all        # Send current clipboard to all devices
-fling send --image <path> --all     # Send an image file
-fling send --text "content" --all   # Send literal text
-fling send --dry-run --clipboard    # Preview without sending
-fling status                        # Check reachability of paired devices
-fling config show                   # Show current configuration
-fling config set --max-size 25      # Update max payload size
-fling config set --compress false   # Toggle compression
-fling config set --hostname "PC"    # Set PC name sent to devices
-fling config remove <name>          # Remove a paired device
+fling send --clipboard --all         # Send current clipboard to all devices
+fling send --image <path> --all      # Send an image file
+fling send --file <path> --all       # Send a file (auto-detects image vs text)
+fling send --text "content" --all    # Send literal text
+fling send --dry-run --clipboard     # Preview without sending
+fling send --verbose --clipboard     # Print request/response details
+fling status                         # Check reachability of paired devices
+fling status --device <n>            # Check a single device
+fling config show                    # Show current configuration
+fling config set --max-size 25       # Update max payload size
+fling config set --compress false    # Toggle compression
+fling config set --log true          # Toggle file logging
+fling config set --hostname "PC"     # Set PC name sent to devices
+fling config remove <name>           # Remove a paired device
+fling install                        # Add Fling to Explorer's "Send to" menu
+fling uninstall                      # Remove it again
 ```
 
 ## CLI Configuration
@@ -272,15 +279,16 @@ Stored at `%APPDATA%\Fling\gui.json`, owned exclusively by the tray app. Never r
 
 ```json
 {
-  "notifications": "failuresOnly",
+  "notifications": "FailuresOnly",
   "rememberLastDevice": true,
   "lastDevice": "",
-  "sendHtmlAsPlainText": false,
   "firstRunComplete": false
 }
 ```
 
 Absent by design: `runAtStartup`. `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` is the source of truth and is read live — a cached copy goes stale the moment the entry is disabled from Task Manager's Startup tab.
+
+Settings written by a build that knew about them and dropped later — `sendHtmlAsPlainText` is the first example — are preserved on load and written back untouched, the same way `config.json` handles unknown keys.
 
 ## Content Types
 

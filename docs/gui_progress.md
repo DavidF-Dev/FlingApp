@@ -281,13 +281,13 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 - [x] Per-device result display. `SendOperation` returns per-device outcomes; a partial failure must name which device failed and why.
 - [x] Keyboard: Enter sends, Esc closes, Ctrl+V pastes.
 - [x] Window closes on full success; stays open showing results on partial or total failure.
-- [x] Open near the cursor, on the monitor the cursor is on.
+- [x] Open centred on the display holding the foreground window. (Superseded "near the cursor" — see the findings below.)
 
 ### Unit Tests
 
 - [x] Staging replaces rather than accumulates: file picker after clipboard leaves exactly one staged item.
 - [x] Content classification matches `FileContentResolver` for image, text, and rejected-binary cases.
-- [x] "Send as plain text" converts a staged HTML item to `text/plain`.
+- [x] Markup is staged only when the clipboard offers no plain-text alternative. (Superseded the planned "send as plain text" toggle — see the design decision above.)
 - [x] Oversized payload is flagged before any network call.
 - [x] Send view-model surfaces mixed per-device results correctly.
 
