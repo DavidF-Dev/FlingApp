@@ -1,7 +1,16 @@
 # Fling - CLI Tool
 
-The Windows half of [Fling](../README.md). A command-line tool that sends clipboard
-content to paired Android devices running the Fling app over the local network.
+Part of [Fling](../README.md). A command-line tool that sends clipboard content to
+paired Android devices running the Fling app over the local network.
+
+There is also a [tray app](../gui/README.md) for interactive use. The two are peer
+front-ends over the same shared libraries: neither requires the other, both read the
+same paired devices and settings, and they release separately with their own version
+numbers. Use the CLI for scripting, Greenshot, and Explorer's "Send to" menu; use the
+tray app when you would rather see what you are sending.
+
+This directory also holds the shared libraries both front-ends consume — see
+[CLAUDE.md](CLAUDE.md) for the project breakdown.
 
 ## Requirements
 

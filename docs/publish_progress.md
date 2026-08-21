@@ -1,6 +1,6 @@
 # Publish & Release — Implementation Plan
 
-This is a **live document** tracking the phased implementation of the Fling release pipeline. Each component (CLI, Android, future Tray) releases independently with its own version, changelog, and GitHub Release.
+This is a **live document** tracking the phased implementation of the Fling release pipeline. Each component (CLI, Android, tray app) releases independently with its own version, changelog, and GitHub Release.
 
 **Reference implementations:**
 - Yohaku: `publish.ps1` (build) + `release.ps1` (guard rails, changelog, `gh release create`). Single-component .NET app.
@@ -9,12 +9,13 @@ This is a **live document** tracking the phased implementation of the Fling rele
 **Conventions (shared across all components):**
 
 - **Independent versioning.** Each component has its own semver version and changelog.
-- **Tag format:** `cli/v0.1.0`, `android/v1.0.0`, `tray/v0.1.0`.
+- **Tag format:** `cli/v*`, `android/v*`, `gui/v*` — named for the directory each component lives in.
 - **Changelog format:** [Keep a Changelog](https://keepachangelog.com/). Release scripts extract the matching `## [x.y.z]` section for the GitHub Release body.
 - **Cross-references.** Each release description includes a "Compatible with" line linking to the latest release of the other component(s), auto-detected from git tags.
 - **Guard rails.** Every release script checks: `gh` installed and authenticated, working tree clean, HEAD pushed, tag doesn't exist, changelog section exists.
 - **Confirmation prompt.** The script shows what it's about to publish and waits for explicit `yes` before creating the tag and release. `-Force` skips the prompt for non-interactive use.
-- **Version source of truth.** CLI: `<Version>` in `cli/src/Fling/Fling.csproj`. Android: `versionName` in `android/app/build.gradle.kts`.
+- **Version source of truth.** CLI: `<Version>` in `cli/src/Fling/Fling.csproj`. Tray app: `<Version>` in `gui/src/Fling.Gui/Fling.Gui.csproj`. Android: `versionName` in `android/app/build.gradle.kts`.
+- **Shared implementation.** The two .NET release scripts dot-source `scripts/ReleaseCommon.ps1` for the guard rails, changelog extraction, cross-references, confirmation, and publish. The Android script is deliberately left standalone: it is a different toolchain, and it is the one release path that cannot be rehearsed without publishing.
 
 ---
 

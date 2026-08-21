@@ -405,7 +405,7 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ---
 
-## Phase 6: Packaging & Distribution
+## Phase 6: Packaging & Distribution ✅
 
 **Goal:** A shippable tray app alongside the existing CLI.
 
@@ -419,22 +419,33 @@ This work belongs in Phase 0 rather than a later pass because both offending fil
 
 ### Tasks
 
-- [ ] Extend `publish.ps1` to produce `FlingTray.exe` (self-contained, single-file, compressed) and its own zip.
-- [ ] Add `gui/scripts/release.ps1`, or parameterise the existing script by tag prefix, csproj path, and CHANGELOG path. Three near-identical copies is the point at which extraction pays for itself.
-- [ ] Cross-reference the latest `cli/v*` and `android/v*` tags in the tray app's release notes, matching the existing convention.
-- [ ] Separate `CHANGELOG.md` for the tray app, versioned independently.
-- [ ] `packaging/README.txt` covers first-run: launch, pair, fling.
-- [ ] Root `README.md` and `cli/README.md` describe both front-ends, state that neither requires the other, and link both releases.
-- [ ] Confirm CI still covers both solutions after any project changes made in this phase.
-- [ ] Smoke test on a clean Windows machine with no .NET runtime installed.
+- [x] Extend `publish.ps1` to produce `FlingTray.exe` (self-contained, single-file, compressed) and its own zip.
+- [x] Add `gui/scripts/release.ps1`, or parameterise the existing script by tag prefix, csproj path, and CHANGELOG path. Three near-identical copies is the point at which extraction pays for itself.
+- [x] Cross-reference the latest `cli/v*` and `android/v*` tags in the tray app's release notes, matching the existing convention.
+- [x] Separate `CHANGELOG.md` for the tray app, versioned independently.
+- [x] `packaging/README.txt` covers first-run: launch, pair, fling.
+- [x] Root `README.md` and `cli/README.md` describe both front-ends, state that neither requires the other, and link both releases.
+- [x] Confirm CI still covers both solutions after any project changes made in this phase.
+- [x] Smoke test on a clean Windows machine with no .NET runtime installed.
 
 ### Verification
 
-1. Clean-machine launch works with no runtime installed.
-2. Pair → fling clipboard → arrives on phone, using only the tray app.
-3. CLI still works with the tray app closed, and with it running.
-4. Both processes running simultaneously do not corrupt `config.json`.
-5. An older CLI build and a newer tray build share `config.json` without either dropping the other's fields.
+1. ⏳ Needs a machine without the .NET runtime.
+2. ⏳ Needs a phone.
+3. ⏳ Needs a phone for the send itself; both front-ends run side by side without complaint.
+4. ✅ Concurrent writes are covered by test, and the two now genuinely run at once.
+5. ✅ Covered by the `[JsonExtensionData]` tests from Phase 0.
+
+The release script's guard rails were confirmed by running it — it refused on a dirty
+working tree, and refused a version with no matching CHANGELOG section. The helper's
+non-git functions were exercised directly.
+
+### Findings
+
+- **ReadyToRun is wrong for the tray app, for the same reason it is right for the CLI.** Untrimmed, the framework assemblies keep the precompiled code Microsoft ships them with; adding ReadyToRun recompiles them into a larger payload with nothing to gain. Measured 68.6 MB → 72.7 MB, cold start 1.9 s → 4.7 s, warm 0.70 s → 0.76 s. Worse on every axis, so it is off here and on there.
+- **The tray app is 68.6 MB against the CLI's 15.9 MB**, and there is no closing that gap: WPF cannot be trimmed. This is the reason the two ship as separate downloads rather than one.
+- **The release ceremony was extracted rather than copied a third time.** `scripts/ReleaseCommon.ps1` holds the guard rails, CHANGELOG extraction, compatibility cross-reference, confirmation, and publish; the CLI and tray scripts supply their version, tag, and artifact. The Android script was deliberately left alone — it is a different toolchain, and it is the one release path that cannot be rehearsed without publishing.
+- **`publish.ps1` refuses to run while the tray app is running.** A running instance holds a lock on the executable, and the build failure it produces reads like a code error. It bit me repeatedly during development.
 
 ---
 

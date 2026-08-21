@@ -2,19 +2,41 @@
 
 ## [Unreleased]
 
-### Added
+## [1.0.0] - 2026-08-21
 
-- Tray icon with a menu: Fling…, Device manager, Settings, Quit. Double-clicking the icon opens the Fling window.
-- Single instance per user session. Launching the app opens the Fling window, whether that starts it or surfaces the copy already running. With no devices paired it opens the Device manager instead, so a first run lands on pairing.
+First public release.
+
+A tray application for sending clipboard content to paired Android devices, alongside the existing command line tool. Neither requires the other; both share the same paired devices and settings.
+
+### Sending
+
+- Running the app opens the Fling window, whether that starts it or brings the running copy forward. Whatever you last copied is already staged, so the common case is launch, then Enter.
+- Content can also come from drag-drop, a file picker, or Ctrl+V for something copied after the window opened.
+- Text and rich text can be edited before sending. Images show a preview with their dimensions, and the payload size is shown against the configured limit.
+- Sends report the outcome for each device, and remember which one you chose.
+- Files that cannot be pasted on a phone are refused rather than sent as a file path.
+- Content an app marked as private — a password manager entry, typically — is not staged automatically. Ctrl+V still sends it deliberately.
+
+### Devices
+
+- The Device manager lists paired devices with live reachability, and devices answering on the network.
+- Pairing shows a cancellable wait for approval on the phone. Devices can be entered by address where broadcast is blocked, and removed with confirmation.
+- A paired device that changes address is found again and its stored address updated.
+
+### Notifications
+
+- Send outcomes are reported through the notification area once the window has closed. Failures name the device and say whether it rejected the key or could not be reached; successes mark the tray icon briefly rather than interrupting.
+- Configurable: always, only on failure (the default), or never.
+- The tray tooltip shows how many devices are paired.
+
+### Settings
+
+- Maximum size, compression, this PC's name, and logging are shared with the command line tool. Notification mode, remembering the last device, starting at sign-in, and the Explorer "Send to" entry belong to the tray app.
+- Changes apply as they are made. Buttons open the config folder and the log file.
+
+### Behaviour
+
+- One instance per user session.
 - Starting at sign-in launches into the tray without a window, and repoints itself if the app is later moved.
 - Windows open on the display you are working on rather than always the primary one.
-- Device manager: paired devices with live reachability, devices found on the network, and pairing with a cancellable wait for approval. Devices can be entered by address where broadcast is blocked, and removed with confirmation.
-- Paired devices update their stored address when discovery finds them elsewhere.
-- Fling window: stages the clipboard when it opens, or a file via drag-drop, the picker, or Ctrl+V. Text and rich text can be edited before sending, images show a preview with their dimensions, and the payload size is shown against the configured limit. Enter sends, Escape closes.
-- Content an app marked as private — a password manager entry, typically — is not staged automatically. Ctrl+V still sends it deliberately.
-- Files that cannot be pasted on a phone are refused rather than sent as a file path.
-- Sends report per-device outcomes, and the chosen device is remembered between sends.
-- Settings: maximum size, compression, this PC's name, and logging are shared with the command line tool; notification mode, remembering the last device, starting at sign-in, and the Explorer "Send to" entry belong to the tray app. Changes apply as they are made.
-- Buttons to open the config folder and the log file, and the app version.
-- Send outcomes are reported through the notification area once the window has closed. Failures name the device and say whether it rejected the key or could not be reached; successes mark the tray icon briefly rather than interrupting. Configurable: always, only on failure (the default), or never.
-- The tray tooltip shows how many devices are paired.
+- With no devices paired, launching opens the Device manager, so a first run lands on pairing.

@@ -15,22 +15,27 @@
     <Nullable>enable</Nullable>
     <AssemblyName>FlingTray</AssemblyName>
     <RootNamespace>Fling.Gui</RootNamespace>
-    <AssemblyVersion>0.1.0</AssemblyVersion>
-    <Version>0.1.0</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <Version>1.0.0</Version>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- LibraryImport generates marshalling stubs that require unsafe blocks. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <!-- WPF is not trim-compatible, so the tray app ships untrimmed. -->
+  <!--
+    WPF is not trim-compatible, so the tray app ships untrimmed — and therefore keeps
+    the precompiled native code the framework assemblies already ship with. Adding
+    ReadyToRun on top recompiles them into a larger payload for no gain: measured
+    +4.1 MB, cold start 1.9 s to 4.7 s, warm start 0.70 s to 0.76 s. The CLI needs it
+    for exactly the opposite reason — trimming strips that precompiled code out.
+  -->
   <PropertyGroup>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
