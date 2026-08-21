@@ -3,6 +3,8 @@
 Part of [Fling](../README.md). A Windows tray application that sends clipboard content
 to paired Android devices running the Fling app over the local network.
 
+![Fling window with an image queued to be sent](.github/preview.png)
+
 There is also a [command line tool](../cli/README.md). The two are peer front-ends over
 the same shared libraries: neither requires the other, both read the same paired devices
 and settings, and they release separately with their own version numbers.

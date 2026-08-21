@@ -8,6 +8,8 @@ A lightweight tool for sending clipboard content from a Windows PC to an Android
 phone over the local network. Take a screenshot, copy some text, or grab an image,
 and it arrives on your phone as a notification, ready to paste.
 
+![Fling window with an image queued to be sent](gui/.github/preview.png)
+
 ## How it works
 
 The PC sends content over HTTP to the phone, which runs a foreground service with an
